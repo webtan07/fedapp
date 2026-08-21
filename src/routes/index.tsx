@@ -33,7 +33,7 @@ function IndexPage() {
             fits <em>you</em>.
           </p>
           <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Link to="/" className="btn-primary">
+            <Link to="/quiz" className="btn-primary">
               Take the FED quiz
             </Link>
             <span className="text-sm text-[#9a8f82]">~2 minutes · no stats</span>
