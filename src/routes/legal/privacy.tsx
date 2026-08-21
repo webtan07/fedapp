@@ -5,12 +5,10 @@ import {
   LegalP,
   LegalUl,
 } from "~/components/legal-layout";
+import { CONTACT_EMAIL } from "~/site";
 export const Route = createFileRoute("/legal/privacy")({
   component: PrivacyPage,
 });
-
-// TODO(lead): replace with the real published contact address before launch.
-const CONTACT_EMAIL = "privacy@fed.app";
 
 /**
  * Privacy Policy.

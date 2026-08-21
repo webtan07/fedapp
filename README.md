@@ -52,6 +52,31 @@ Tables created in `fed`:
 | `/app/plate` | Today's Plate screen |
 | `/app/tracker` | Tracker screen |
 
+## Paywall & purchase activation
+- The "Get FED" CTA on the result/sales page and the app lock screen opens the
+  real $19 founding checkout (`https://buy.stripe.com/9B6cN55uE6Ke7xrau82go00`
+  — src/site.ts `STRIPE_PAYWALL_URL`, overridable via `PAYWALL_URL`).
+- **Unlock handoff (v1):** our managed one-time payment link provides no Stripe
+  webhook/secret, so a successful purchase is not auto-detected. A returning
+  buyer opens the app's lock screen and enters the email they paid with;
+  `unlockWithEmail` (src/routes/api/app.ts) grants `plan_access` for that email
+  (`grantPlanAccess`, src/db/db.ts). **This is an honor-system activation** — we
+  cannot verify the purchase server-side. The path to verified automatic
+  activation is a real Stripe webhook once the owner's own Stripe keys exist.
+
+## Deploy (Vercel, Build Output API — CLI --prebuilt only)
+Do NOT `vercel link` / git-connect (git auto-builds have hijacked aliases on
+our other apps). Build + deploy from the working tree:
+```bash
+VERCEL_TOKEN=<team token> bash deploy.sh   # builds .vercel/output, deploys, prints LIVE url
+```
+Equivalently: `bash build-vercel.sh` then
+`bunx vercel deploy --prebuilt --yes --name fedapp --scope webina \
+  -e DATABASE_URL="$DATABASE_URL" -e PAYWALL_URL="$PAYWALL_URL"`.
+The production alias (`https://fedapp-*.vercel.app`) is the public URL. Make the
+project public to drop the login wall. Env vars are baked in per-deployment;
+change them and redeploy.
+
 ## Compliance
 The landing page includes a prominent medical disclaimer footer: FED is a
 general wellness product, not medical advice — consult your doctor before

@@ -4,6 +4,8 @@ import {
   endOpenFast,
   ensureSchema,
   getCheckin,
+  getOrCreateUser,
+  grantPlanAccess,
   hasActivePlan,
   listCheckins,
   listFasts,
@@ -48,6 +50,45 @@ export const getAppAccess = createServerFn()
     requireEnv("databaseUrl");
     await ensureSchema();
     return { hasPlan: await hasActivePlan(userId) };
+  });
+
+// ── Purchase activation (email handoff) ────────────────────────────────────
+export interface UnlockInput {
+  /** The email the buyer used at Stripe checkout. */
+  email: string;
+}
+export interface UnlockResult {
+  success: true;
+  userId: number;
+  email: string;
+  hasPlan: true;
+}
+/**
+ * v1 activation after a Stripe founding-purchase. Our managed one-time payment
+ * link cannot deliver server-side webhooks (no Stripe secret), so there is no
+ * automated checkout→unlock. Instead a returning buyer enters the email they
+ * paid with and we grant plan_access for that email.
+ *
+ * HONESTY NOTE: this is an honor-system handoff for the $19 one-time product —
+ * we cannot cryptographically verify that this exact email completed a Stripe
+ * checkout, and any valid-looking address activates access. That is the lean
+ * trade-off chosen for the founding launch; a real Stripe webhook / checkout
+ * session id (once the owner's own Stripe keys exist) is the path to verified
+ * automatic activation. The flow is documented in the deploy PR.
+ */
+export const unlockWithEmail = createServerFn()
+  .validator((d: UnlockInput) => {
+    if (!d || typeof d.email !== "string" || !/^\S+@\S+\.\S+$/.test(d.email.trim())) {
+      throw new Error("Enter the email you used at checkout so we can unlock your plan.");
+    }
+    return { email: d.email.trim().toLowerCase() };
+  })
+  .handler(async ({ data }): Promise<UnlockResult> => {
+    requireEnv("databaseUrl");
+    await ensureSchema();
+    const user = await getOrCreateUser(data.email);
+    await grantPlanAccess(user.id);
+    return { success: true, userId: user.id, email: user.email, hasPlan: true };
   });
 
 // ── Fasting Timer ──────────────────────────────────────────────────────────

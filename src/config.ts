@@ -1,3 +1,5 @@
+import { STRIPE_PAYWALL_URL } from "~/site";
+
 /**
  * Central env-var access + validation for FED.
  *
@@ -14,10 +16,11 @@ export interface AppConfig {
   /** Port the dev/start server binds to (default 3101 — never 3000/3100). */
   port: number;
   /**
-   * Stripe payment-link / checkout URL for the "Get FED" founding plan.
-   * Placeholder until the owner plugs their real payment link (see NOTES in
-   * the business plan — set PAYWALL_URL in the env). The CTA renders but
-   * points at a neat placeholder until then.
+   * Stripe payment-link / checkout URL for the "Get FED" founding plan
+   * ($19 one-time founding membership). Reads PAYWALL_URL from the env; when
+   * unset it falls back to the real Stripe link (STRIPE_PAYWALL_URL in
+   * src/site.ts) so the CTA always points at live checkout, in production and
+   * local dev alike. Set PAYWALL_URL on the host to override/relink.
    */
   paywallUrl: string;
 }
@@ -29,7 +32,7 @@ export const config: AppConfig = {
   databaseUrl: str("DATABASE_URL"),
   appBaseUrl: str("APP_BASE_URL") ?? "http://localhost:3101",
   port: Number(str("PORT") ?? "3101") || 3101,
-  paywallUrl: str("PAYWALL_URL") ?? "",
+  paywallUrl: str("PAYWALL_URL") ?? STRIPE_PAYWALL_URL,
 };
 const ENV_KEY_BY_CONFIG_KEY: Record<keyof AppConfig, string> = {
   databaseUrl: "DATABASE_URL",

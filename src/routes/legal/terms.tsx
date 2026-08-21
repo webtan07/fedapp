@@ -5,12 +5,10 @@ import {
   LegalP,
   LegalUl,
 } from "~/components/legal-layout";
+import { CONTACT_EMAIL } from "~/site";
 export const Route = createFileRoute("/legal/terms")({
   component: TermsPage,
 });
-
-// TODO(lead): replace with the real published contact address before launch.
-const CONTACT_EMAIL = "help@fed.app";
 
 /**
  * Terms of Use + Subscription / Refund / Cancellation.

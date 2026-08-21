@@ -180,6 +180,27 @@ export async function hasActivePlan(userId: number): Promise<boolean> {
   return rows.length ? Boolean(rows[0].has) : false;
 }
 
+/**
+ * Grant an active paid plan to a user (upsert on plan_access + flip users.plan
+ * to 'paid'). This is the v1 activation handoff after a Stripe founding-purchase:
+ * we cannot verify the purchase server-side (no Stripe secret/webhook with our
+ * managed one-time payment link), so a returning buyer enters the email they
+ * paid with and we grant access for that email. It also grants for E2E/QA.
+ * Idempotent — safe to call repeatedly.
+ */
+export async function grantPlanAccess(userId: number): Promise<void> {
+  const db = sql();
+  await db`
+    INSERT INTO fed.plan_access (user_id, plan, access_level, granted_at, expires_at, stripe_session_id)
+    VALUES (${userId}, 'paid', 'plan', now(), NULL, NULL)
+    ON CONFLICT (user_id, plan) DO UPDATE SET
+      access_level = 'plan',
+      granted_at   = now(),
+      expires_at   = NULL
+  `;
+  await db`UPDATE fed.users SET plan = 'paid' WHERE id = ${userId}`;
+}
+
 // ── Fasting sessions (server timestamps = source of truth) ─────────────────
 /** Begin a fast. Postgres `now()` sets the server timestamp so streaks survive
  *  client refreshes / timezones (we never trust a client clock for timing). */
