@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell, Locked } from "~/components/app-shell";
 import { SunBadge } from "~/components/brand";
+import { DisclaimerNote } from "~/components/footer";
 import { getAppAccess } from "~/routes/api/app";
 
 export const Route = createFileRoute("/app/")({
@@ -41,6 +42,7 @@ function AppHome() {
           <p className="mt-2 text-ink-soft">
             Four small things, one day at a time. Energy comes back in the everyday.
           </p>
+          <DisclaimerNote className="mt-3" />
           <div className="mt-8 grid gap-4 text-left">
             {[
               { href: "/app/fasting", label: "Fasting", d: "Start your window & keep your streak." },

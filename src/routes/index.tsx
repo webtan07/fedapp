@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FEDWordmark } from "~/components/brand";
+import { LegalFooter } from "~/components/footer";
 
 export const Route = createFileRoute("/")({
   component: IndexPage,
@@ -71,8 +72,9 @@ function IndexPage() {
             You’re not broken. <span className="text-warm">Your body’s just been burning energy the wrong way.</span>
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-ink-soft">
-            FED is how you get your energy back — one small, steady choice in each
-            pillar until the whole system settles.
+            FED is how you start getting your energy back — one small, steady
+            choice in each pillar, at your own pace, until the whole system
+            settles.
           </p>
           <div className="mt-6">
             <Link to="/quiz" className="btn-primary">
@@ -82,22 +84,8 @@ function IndexPage() {
         </section>
       </main>
 
-      {/* Medical disclaimer footer — compliance requirement. */}
-      <footer className="mt-16 border-t border-line px-6 py-10">
-        <div className="mx-auto max-w-3xl text-center">
-          <FEDWordmark size={30} withSun className="mx-auto" />
-          <p className="mt-6 text-xs leading-relaxed text-ink-soft">
-            FED is a general wellness product, not medical advice. It does not
-            diagnose, treat, or prevent any disease. Always consult your doctor
-            or another qualified health provider before changing your diet,
-            fasting, or exercise routine — especially if you have a medical
-            condition, take medication, or are pregnant or nursing.
-          </p>
-          <p className="mt-4 text-xs text-muted">
-            © {new Date().getFullYear()} FED
-          </p>
-        </div>
-      </footer>
+      {/* Medical disclaimer footer + legal links — compliance requirement. */}
+      <LegalFooter wordmark />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { SunBadge } from "./brand";
+import { DisclaimerNote, LegalFooter } from "./footer";
 
 const PAGES = [
   { href: "/app", label: "My Plan" },
@@ -45,12 +46,8 @@ export function AppShell({
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-10">{children}</main>
-      <footer className="mx-auto max-w-3xl px-6 pb-8 text-center">
-        <p className="text-xs text-muted">
-          FED is a general wellness product, not medical advice. Consult your
-          doctor before changing your diet, fasting, or exercise routine.
-        </p>
-      </footer>
+      {/* Medical disclaimer + legal links footer (kept on the check-in app). */}
+      <LegalFooter contained />
     </div>
   );
 }
@@ -70,6 +67,7 @@ export function Locked({ title, blurb }: { title: string; blurb?: string }) {
         {blurb ??
           "This is where your daily plan lives once you're in. Upgrade to unlock your personalized FED plan."}
       </p>
+      <DisclaimerNote className="mt-4" />
       <div className="mt-6">
         <Link to="/quiz" className="btn-primary">
           Get FED

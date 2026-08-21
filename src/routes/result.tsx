@@ -9,6 +9,7 @@ import {
 import { DynamicShareCard } from "~/components/share-card";
 import { toPng } from "html-to-image";
 import { FEDWordmark } from "~/components/brand";
+import { DisclaimerNote, LegalFooter } from "~/components/footer";
 
 export const Route = createFileRoute("/result")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -230,7 +231,7 @@ function ResultPage() {
             </div>
 
             <p className="text-center text-sm uppercase tracking-[0.2em] text-muted">
-              Your FED diagnosis
+              Your FED read
             </p>
 
             {/* ── Score reveal ── */}
@@ -242,6 +243,7 @@ function ResultPage() {
               <p className="mt-3 text-sm uppercase tracking-[0.2em] text-peach">
                 {search.intensity} intensity
               </p>
+              <DisclaimerNote className="mt-4" />
             </div>
 
             {/* ── Profile ── */}
@@ -286,6 +288,7 @@ function ResultPage() {
               <p className="mt-1 text-center text-sm text-ink-soft">
                 One for each pillar — a taste of your personalized FED plan.
               </p>
+              <DisclaimerNote className="mt-3" />
               <div className="mt-6 space-y-3">
                 {teasers.map((t) => (
                   <div key={t.pillar} className="card">
@@ -303,7 +306,7 @@ function ResultPage() {
             <section className="card mx-auto mt-12 max-w-lg text-center shadow-glow">
               <p className="text-xs uppercase tracking-[0.2em] text-muted">Get FED</p>
               <h3 className="mt-2 font-display text-2xl font-extrabold">
-                Turn your diagnosis into your daily plan
+                Turn your FED result into your daily plan
               </h3>
               <p className="mx-auto mt-2 max-w-sm text-sm text-ink-soft">
                 Fasting timer, daily move &amp; plate, and a simple energy tracker —
@@ -331,19 +334,8 @@ function ResultPage() {
           </>
         )}
       </main>
-      {/* Medical disclaimer footer — compliance requirement. */}
-      <footer className="border-t border-line px-6 py-10">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-xs leading-relaxed text-ink-soft">
-            FED is a general wellness product, not medical advice. It does not
-            diagnose, treat, or prevent any disease. Always consult your doctor
-            or another qualified health provider before changing your diet,
-            fasting, or exercise routine — especially if you have a medical
-            condition, take medication, or are pregnant or nursing.
-          </p>
-          <p className="mt-4 text-xs text-muted">© {new Date().getFullYear()} FED</p>
-        </div>
-      </footer>
+      {/* Medical disclaimer footer + legal links — compliance requirement. */}
+      <LegalFooter />
     </div>
   );
 }
@@ -352,7 +344,7 @@ function ResultPage() {
 function NoResult() {
   return (
     <div className="text-center">
-      <p className="mb-4 text-sm uppercase tracking-[0.2em] text-muted">Your FED diagnosis</p>
+      <p className="mb-4 text-sm uppercase tracking-[0.2em] text-muted">Your FED read</p>
       <h1 className="font-display text-4xl font-extrabold">Your result is on its way</h1>
       <p className="mx-auto mt-6 max-w-lg text-ink-soft">
         Take the 2-minute quiz and your FED score, profile, and first moves
@@ -383,7 +375,7 @@ function EmailGate({
 }) {
   return (
     <div className="text-center">
-      <p className="mb-4 text-sm uppercase tracking-[0.2em] text-muted">Your FED diagnosis</p>
+      <p className="mb-4 text-sm uppercase tracking-[0.2em] text-muted">Your FED read</p>
       <h1 className="font-display text-3xl font-extrabold leading-snug sm:text-4xl">
         Your score is ready —<br />we just need to know where to send it
       </h1>
