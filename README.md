@@ -56,3 +56,19 @@ Tables created in `fed`:
 The landing page includes a prominent medical disclaimer footer: FED is a
 general wellness product, not medical advice — consult your doctor before
 changing your diet, fasting, or exercise routine.
+
+## PWA installability
+FED is installable to a phone/desktop home screen (no app store):
+- `public/manifest.webmanifest` — name/short_name "FED", `display: standalone`,
+  brand `theme_color` (#FF8A5C) + `background_color` (#FFF4E6), icons 192/512
+  (plus a `maskable` 512) generated from the designer's 1024×1024
+  `public/static/fed-icon.png`.
+- `public/sw.js` — lightweight service worker: network-first for navigations
+  (offline fallback to the cached shell), stale-while-revalidate for static
+  assets. Registered in `src/routes/__root.tsx` on the client.
+- `src/components/install-prompt.tsx` — small "Add FED to your home screen"
+  pill surfaced via `beforeinstallprompt`; appears only when the browser makes
+  the site installable, disappears on install/dismiss.
+- Icons: `public/static/fed-icon-{180,192,512}.png` (apple-touch-icon /
+  manifest icons). Re-generate from `fed-icon.png` if the brand icon changes.
+
