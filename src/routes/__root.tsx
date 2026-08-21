@@ -20,15 +20,12 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      {
-        rel: "icon",
-        type: "image/svg+xml",
-        href: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='3' y='3' width='34' height='34' rx='9' fill='%23191614' stroke='%23E8B86B' stroke-width='2'/%3E%3Ctext x='20' y='27' font-size='16' font-weight='bold' text-anchor='middle' fill='%23E8B86B'%3EF%3C/text%3E%3C/svg%3E",
-      },
+      { rel: "icon", type: "image/png", href: "/static/fed-icon.png" },
+      { rel: "apple-touch-icon", href: "/static/fed-icon.png" },
     ],
   }),
   notFoundComponent: () => (
-    <div className="flex min-h-dvh items-center justify-center text-[#9a8f82]">
+    <div className="flex min-h-dvh items-center justify-center text-ink-soft">
       Page not found
     </div>
   ),

@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { Intensity, Pillar, Profile } from "~/db/schema";
 import {
   captureEmail,
   getProfileData,
   markRevealed,
 } from "~/routes/api/result";
+import { DynamicShareCard } from "~/components/share-card";
+import { toPng } from "html-to-image";
+import { FEDWordmark } from "~/components/brand";
 
 export const Route = createFileRoute("/result")({
   validateSearch: (search: Record<string, unknown>) => {
@@ -95,6 +98,8 @@ function userIdInSession(): number | null {
 function ResultPage() {
   const search = Route.useSearch();
   const hasResult = search.total !== undefined && search.profile !== undefined;
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [sharing, setSharing] = useState(false);
 
   // The funnel gate: don't reveal the score to someone who hasn't given us an
   // email this session. Initialised synchronously (so no gate-flash on a
@@ -168,14 +173,29 @@ function ResultPage() {
     }
   };
 
+  // Capture the DOM card to a shareable PNG and trigger a download.
+  const shareCard = async () => {
+    if (!cardRef.current) return;
+    setSharing(true);
+    try {
+      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, cacheBust: true });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `fed-profile-${(search.profile ?? "share").toLowerCase()}.png`;
+      a.click();
+    } catch {
+      /* fall to nothing — card is still visible on screen to screenshot */
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
-    <div className="min-h-dvh bg-[#191614]">
+    <div className="min-h-dvh bg-cream">
       <main className="mx-auto max-w-2xl px-6 py-10 sm:py-16">
         <nav className="mb-8 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-bold tracking-tight text-[#e8b86b]">
-            FED
-          </Link>
-          <span className="text-sm text-[#9a8f82]">~2 minutes · no stats</span>
+          <FEDWordmark withSun size={32} />
+          <span className="text-sm text-ink-soft">~2 minutes · no stats</span>
         </nav>
 
         {!hasResult ? (
@@ -190,44 +210,48 @@ function ResultPage() {
           />
         ) : (
           <>
-            {/* Shareable profile card visual slot — designer asset drops in here.
-                Keep this element; it is the hook for the viral result-card image. */}
-            <div
-              id="fed-share-card-slot"
-              className="fed-share-card-slot mx-auto mb-12 flex h-40 w-full max-w-md items-center justify-center rounded-2xl border border-dashed border-[#352d26] bg-[#221e1b] text-center text-xs text-[#6b6155]"
-            >
-              ✦ Shareable FED result card goes here ✦
+            {/* Shareable profile card — rendered real user data, captured to PNG. */}
+            <div id="fed-share-card-slot" className="mx-auto mb-12 w-fit">
+              <DynamicShareCard
+                ref={cardRef}
+                data={{
+                  profileName: meta.name,
+                  total,
+                  intensity: search.intensity ?? "mid",
+                  oneLiner: meta.oneLiner || "Your energy is on its way back.",
+                }}
+              />
+              <button onClick={shareCard} disabled={sharing} className="btn-primary mt-4 w-full">
+                {sharing ? "Preparing…" : "Share my result"}
+              </button>
+              <p className="mt-2 text-center text-xs text-muted">
+                Download an image of your FED profile to share on social or with a friend.
+              </p>
             </div>
 
-            <p className="text-center text-sm uppercase tracking-[0.2em] text-[#c99a4e]">
+            <p className="text-center text-sm uppercase tracking-[0.2em] text-muted">
               Your FED diagnosis
             </p>
 
             {/* ── Score reveal ── */}
             <div className="mt-2 text-center">
-              <div className="text-8xl font-extrabold text-warm sm:text-9xl">
+              <div className="font-display text-8xl font-extrabold text-terracotta sm:text-9xl">
                 {total}
-                <span className="text-3xl text-[#9a8f82]">/24</span>
+                <span className="text-3xl text-ink-soft">/24</span>
               </div>
-              <p className="mt-3 text-sm uppercase tracking-[0.2em] text-[#c99a4e]">
+              <p className="mt-3 text-sm uppercase tracking-[0.2em] text-peach">
                 {search.intensity} intensity
               </p>
             </div>
 
             {/* ── Profile ── */}
             <div className="card mx-auto mt-10 text-left">
-              <p className="text-xs uppercase tracking-[0.2em] text-[#9a8f82]">
-                Your profile
-              </p>
-              <h2 className="mt-2 text-3xl font-extrabold">{meta.name}</h2>
+              <p className="text-xs uppercase tracking-[0.2em] text-muted">Your profile</p>
+              <h2 className="mt-2 font-display text-3xl font-extrabold">{meta.name}</h2>
               {meta.oneLiner && (
-                <p className="mt-1 text-lg font-medium text-[#e8b86b]">
-                  “{meta.oneLiner}”
-                </p>
+                <p className="mt-1 text-lg font-medium text-peach">“{meta.oneLiner}”</p>
               )}
-              {meta.description && (
-                <p className="mt-3 text-[#cfc4b4]">{meta.description}</p>
-              )}
+              {meta.description && <p className="mt-3 text-ink-soft">{meta.description}</p>}
 
               {/* ── F/E/D pillar breakdown bars ── */}
               <div className="mt-6 space-y-3">
@@ -237,14 +261,14 @@ function ResultPage() {
                   return (
                     <div key={p.key}>
                       <div className="mb-1 flex justify-between text-sm">
-                        <span className="text-[#cfc4b4]">
+                        <span className="text-ink-soft">
                           {p.sub} · {p.label}
                         </span>
-                        <span className="text-[#9a8f82]">{raw}/8</span>
+                        <span className="text-muted">{raw}/8</span>
                       </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-[#352d26]">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-paper-deep">
                         <div
-                          className="h-full rounded-full bg-[#e8b86b] transition-all"
+                          className="h-full rounded-full bg-gradient-to-r from-peach to-amber transition-all"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -256,24 +280,20 @@ function ResultPage() {
 
             {/* ── Three first moves (teasers) ── */}
             <section className="mx-auto mt-12 max-w-lg">
-              <h3 className="text-center text-xl font-bold">
+              <h3 className="text-center font-display text-xl font-bold">
                 Three first moves worth starting
               </h3>
-              <p className="mt-1 text-center text-sm text-[#9a8f82]">
+              <p className="mt-1 text-center text-sm text-ink-soft">
                 One for each pillar — a taste of your personalized FED plan.
               </p>
               <div className="mt-6 space-y-3">
                 {teasers.map((t) => (
                   <div key={t.pillar} className="card">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e8b86b] text-sm font-bold text-[#191614]">
-                        {t.pillar === "fasting" ? "F" : t.pillar === "exercise" ? "E" : "D"}
-                      </span>
-                      <span className="text-sm font-semibold text-[#e8b86b]">
-                        {t.label}
-                      </span>
+                      <span className="pillar-chip">{t.pillar === "fasting" ? "F" : t.pillar === "exercise" ? "E" : "D"}</span>
+                      <span className="text-sm font-semibold text-terracotta">{t.label}</span>
                     </div>
-                    <p className="mt-2 text-[#cfc4b4]">{t.copy}</p>
+                    <p className="mt-2 text-ink-soft">{t.copy}</p>
                   </div>
                 ))}
               </div>
@@ -281,61 +301,47 @@ function ResultPage() {
 
             {/* ── Get FED paywall CTA ── */}
             <section className="card mx-auto mt-12 max-w-lg text-center shadow-glow">
-              <p className="text-xs uppercase tracking-[0.2em] text-[#9a8f82]">
-                Get FED
-              </p>
-              <h3 className="mt-2 text-2xl font-extrabold">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted">Get FED</p>
+              <h3 className="mt-2 font-display text-2xl font-extrabold">
                 Turn your diagnosis into your daily plan
               </h3>
-              <p className="mt-3 text-[#cfc4b4]">
-                The full FED app — your fasting timer, today’s move, today’s
-                plate, and a simple tracker — built around <em>your</em> profile.
-                Starting at{" "}
-                <span className="font-semibold text-[#e8b86b]">{priceLabel || "$19–29/mo"}</span>.
+              <p className="mx-auto mt-2 max-w-sm text-sm text-ink-soft">
+                Fasting timer, daily move &amp; plate, and a simple energy tracker —
+                in the plan that finally fits you.
               </p>
-              <div className="mt-6 flex flex-col gap-3">
-                {paywallUrl ? (
-                  <a href={paywallUrl} target="_blank" rel="noopener noreferrer" className="btn-primary w-full">
-                    Get FED — founding membership
-                  </a>
-                ) : (
-                  <a href="#paywall" className="btn-primary w-full">
-                    Get FED — founding membership
-                    <span className="ml-2 text-xs opacity-80">(its live link lands here soon)</span>
-                  </a>
-                )}
-                <Link to="/app" className="btn-secondary w-full">
-                  Unlock your plan in the app
-                </Link>
-              </div>
-              <p className="mt-4 text-xs text-[#9a8f82]">
-                General wellness — supportive, honest guidance. It is not
-                medical advice and makes no weight-loss or health promises.
+              <a
+                href={paywallUrl || "#"}
+                onClick={(e) => {
+                  if (!paywallUrl) e.preventDefault();
+                }}
+                className="btn-primary mt-6 w-full"
+              >
+                Get FED — {priceLabel}
+              </a>
+              <p className="mt-4 text-xs text-muted">
+                Cancel anytime. Founding members lock today’s rate for life.
               </p>
             </section>
 
             <div className="mt-8 flex justify-center">
-              <Link to="/" className="text-sm text-[#9a8f82] hover:text-[#e8b86b]">
+              <Link to="/" className="text-sm text-ink-soft hover:text-peach">
                 ← Back home
               </Link>
             </div>
           </>
         )}
       </main>
-
       {/* Medical disclaimer footer — compliance requirement. */}
-      <footer className="border-t border-[#352d26] bg-[#191614] px-6 py-8">
+      <footer className="border-t border-line px-6 py-10">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="text-xs leading-relaxed text-[#9a8f82]">
+          <p className="text-xs leading-relaxed text-ink-soft">
             FED is a general wellness product, not medical advice. It does not
             diagnose, treat, or prevent any disease. Always consult your doctor
             or another qualified health provider before changing your diet,
             fasting, or exercise routine — especially if you have a medical
             condition, take medication, or are pregnant or nursing.
           </p>
-          <p className="mt-4 text-xs text-[#9a8f82]">
-            © {new Date().getFullYear()} FED
-          </p>
+          <p className="mt-4 text-xs text-muted">© {new Date().getFullYear()} FED</p>
         </div>
       </footer>
     </div>
@@ -346,11 +352,9 @@ function ResultPage() {
 function NoResult() {
   return (
     <div className="text-center">
-      <p className="mb-4 text-sm uppercase tracking-[0.2em] text-[#c99a4e]">
-        Your FED diagnosis
-      </p>
-      <h1 className="text-4xl font-extrabold">Your result is on its way</h1>
-      <p className="mx-auto mt-6 max-w-lg text-[#cfc4b4]">
+      <p className="mb-4 text-sm uppercase tracking-[0.2em] text-muted">Your FED diagnosis</p>
+      <h1 className="font-display text-4xl font-extrabold">Your result is on its way</h1>
+      <p className="mx-auto mt-6 max-w-lg text-ink-soft">
         Take the 2-minute quiz and your FED score, profile, and first moves
         will be revealed here.
       </p>
@@ -379,13 +383,11 @@ function EmailGate({
 }) {
   return (
     <div className="text-center">
-      <p className="mb-4 text-sm uppercase tracking-[0.2em] text-[#c99a4e]">
-        Your FED diagnosis
-      </p>
-      <h1 className="text-3xl font-extrabold leading-snug sm:text-4xl">
+      <p className="mb-4 text-sm uppercase tracking-[0.2em] text-muted">Your FED diagnosis</p>
+      <h1 className="font-display text-3xl font-extrabold leading-snug sm:text-4xl">
         Your score is ready —<br />we just need to know where to send it
       </h1>
-      <p className="mx-auto mt-5 max-w-lg text-[#cfc4b4]">
+      <p className="mx-auto mt-5 max-w-lg text-ink-soft">
         Enter your email and we’ll reveal your FED score, the profile that
         explains <em>why you feel this way</em>, and the first moves that are
         actually worth starting. No spam — ever.
@@ -397,14 +399,14 @@ function EmailGate({
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onSubmit()}
           placeholder="you@example.com"
-          className="rounded-full border border-[#352d26] bg-[#191614] px-5 py-3 text-[#f5eee2] placeholder-[#6b6155] outline-none focus:border-[#e8b86b]"
+          className="rounded-full border border-line bg-paper px-5 py-3 text-ink placeholder-muted outline-none focus:border-peach"
         />
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-terracotta">{error}</p>}
         <button onClick={onSubmit} disabled={submitting} className="btn-primary w-full">
           {submitting ? "Saving…" : "Reveal my FED score"}
         </button>
       </div>
-      <p className="mt-8 text-xs text-[#6b6155]">
+      <p className="mt-8 text-xs text-muted">
         We’ll keep it to the score, the plan, and the occasional honest note.
       </p>
     </div>

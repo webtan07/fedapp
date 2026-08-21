@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { SunBadge } from "./brand";
 
 const PAGES = [
   { href: "/app", label: "My Plan" },
@@ -10,15 +11,22 @@ const PAGES = [
 ];
 
 /** Shared shell for the paywalled 4-screen app (Fasting / Move / Plate / Tracker). */
-export function AppShell({ active, children }: { active?: string; children: ReactNode }) {
+export function AppShell({
+  active,
+  children,
+}: {
+  active?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="min-h-dvh bg-[#191614]">
-      <header className="sticky top-0 z-10 border-b border-[#352d26] bg-[#191614]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link to="/" className="text-xl font-bold text-[#e8b86b]">
-            FED
+    <div className="min-h-dvh bg-cream">
+      <header className="sticky top-0 z-10 border-b border-line bg-cream/95 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-6 py-4">
+          <Link to="/" className="flex items-center gap-2">
+            <SunBadge size={26} />
+            <span className="text-2xl font-extrabold tracking-tight text-warm">FED</span>
           </Link>
-          <nav className="flex flex-wrap gap-2 text-sm">
+          <nav className="flex flex-wrap gap-1.5 text-sm">
             {PAGES.map((p) => (
               <Link
                 key={p.href}
@@ -26,8 +34,8 @@ export function AppShell({ active, children }: { active?: string; children: Reac
                 className={
                   "rounded-full px-3 py-1.5 transition " +
                   (active === p.label
-                    ? "bg-[#e8b86b] font-semibold text-[#191614]"
-                    : "text-[#cfc4b4] hover:bg-[#2a241f]")
+                    ? "bg-gradient-to-r from-peach to-amber font-semibold text-white shadow-glow"
+                    : "text-ink-soft hover:bg-paper-deep")
                 }
               >
                 {p.label}
@@ -37,25 +45,36 @@ export function AppShell({ active, children }: { active?: string; children: Reac
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-10">{children}</main>
+      <footer className="mx-auto max-w-3xl px-6 pb-8 text-center">
+        <p className="text-xs text-muted">
+          FED is a general wellness product, not medical advice. Consult your
+          doctor before changing your diet, fasting, or exercise routine.
+        </p>
+      </footer>
     </div>
   );
 }
 
-export function Locked({ title }: { title: string }) {
+/**
+ * Content shown inside the shell when the user has no active plan_access row.
+ * Rendered by the four app screens when `plan` is false.
+ */
+export function Locked({ title, blurb }: { title: string; blurb?: string }) {
   return (
-    <AppShell active={title}>
-      <div className="card mx-auto max-w-md text-center">
-        <h1 className="text-2xl font-bold">{title}</h1>
-        <p className="mt-3 text-[#9a8f82]">
-          Your personalized plan lives here once you’re in. Upgrade to unlock
-          your daily {title.toLowerCase()}.
-        </p>
-        <div className="mt-6">
-          <Link to="/" className="btn-primary">
-            Get FED
-          </Link>
-        </div>
+    <div className="mx-auto max-w-md text-center">
+      <div className="mx-auto mb-6 w-fit">
+        <SunBadge size={84} />
       </div>
-    </AppShell>
+      <h1 className="text-3xl font-extrabold">{title}</h1>
+      <p className="mt-3 text-ink-soft">
+        {blurb ??
+          "This is where your daily plan lives once you're in. Upgrade to unlock your personalized FED plan."}
+      </p>
+      <div className="mt-6">
+        <Link to="/quiz" className="btn-primary">
+          Get FED
+        </Link>
+      </div>
+    </div>
   );
 }
