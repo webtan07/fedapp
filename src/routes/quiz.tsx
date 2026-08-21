@@ -127,8 +127,7 @@ function QuizPage() {
                     onClick={() => choose(question.key, opt.value)}
                     className="btn-secondary w-full justify-between text-left"
                   >
-                    <span>{opt.label}</span>
-                    <span className="text-sm text-muted">
+                    <span>
                       {opt.id === "yes"
                         ? "That’s me"
                         : opt.id === "sometimes"
