@@ -1,11 +1,12 @@
 import { neon } from "@neondatabase/serverless";
 import {
   CREATE_TABLES,
+  MIGRATIONS,
   SEED_MOVES,
   SEED_PLATES,
   SEED_PROFILES,
 } from "./schema";
-import type { Profile } from "./schema";
+import type { Pillar, Profile } from "./schema";
 
 /**
  * Server-only handle to the app's database (Neon serverless Postgres over HTTP).
@@ -40,17 +41,28 @@ export async function ensureSchema(): Promise<void> {
   for (const statement of CREATE_TABLES) {
     await db`${db.unsafe(statement)}`;
   }
+  // Idempotent migrations for schemas created by an older version of the DDL.
+  for (const statement of MIGRATIONS) {
+    await db`${db.unsafe(statement)}`;
+  }
   await seedStaticContent();
 }
 
-/** Insert seed profiles / moves / plates, skipping any that already exist. */
+/** Insert seed profiles / moves / plates, updating any row that already exists. */
 async function seedStaticContent(): Promise<void> {
   const db = sql();
   for (const p of SEED_PROFILES) {
+    // DO UPDATE (not DO NOTHING) so rows seeded by an earlier version get
+    // corrected to the LOCKED pillar mapping and the current copy.
     await db`
       INSERT INTO fed.profiles (slug, name, pillar, headline, one_liner, description)
       VALUES (${p.slug}, ${p.name}, ${p.pillar}, ${p.headline}, ${p.oneLiner}, ${p.description})
-      ON CONFLICT (slug) DO NOTHING
+      ON CONFLICT (slug) DO UPDATE SET
+        name = EXCLUDED.name,
+        pillar = EXCLUDED.pillar,
+        headline = EXCLUDED.headline,
+        one_liner = EXCLUDED.one_liner,
+        description = EXCLUDED.description
     `;
   }
   for (const m of SEED_MOVES) {
@@ -98,6 +110,42 @@ export async function getOrCreateUser(email: string): Promise<{
     RETURNING id, email, plan
   `;
   return { id: rows[0].id, email: rows[0].email, plan: rows[0].plan };
+}
+
+/** Return one profile by slug (e.g. "wired-and-tired"), or null if absent. */
+export async function getProfileBySlug(slug: string): Promise<Profile | null> {
+  const rows = await sql()`
+    SELECT id, slug, name, pillar, headline, one_liner AS "oneLiner", description
+    FROM fed.profiles WHERE slug = ${slug}
+    LIMIT 1
+  `;
+  return rows.length ? (rows[0] as unknown as Profile) : null;
+}
+
+/** Return one profile by its dominant pillar — the KEY the result page uses to identify the profile. */
+export async function getProfileByPillar(pillar: Pillar): Promise<Profile | null> {
+  const rows = await sql()`
+    SELECT id, slug, name, pillar, headline, one_liner AS "oneLiner", description
+    FROM fed.profiles WHERE pillar = ${pillar}
+    LIMIT 1
+  `;
+  return rows.length ? (rows[0] as unknown as Profile) : null;
+}
+
+/** Funnel steps we want to measure (email-capture rate, quiz→paid conversion). */
+export type FunnelStep =
+  | "quiz_started"
+  | "email_captured"
+  | "score_revealed"
+  | "paywall_clicked";
+
+/** Advance a user's funnel_step (idempotent-ish: never move backwards). */
+export async function markFunnelStep(userId: number, step: FunnelStep): Promise<void> {
+  await sql()`
+    UPDATE fed.users
+    SET funnel_step = ${step}
+    WHERE id = ${userId}
+  `;
 }
 
 /** List the FED tables present in the `fed` schema (for the healthcheck). */

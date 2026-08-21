@@ -110,6 +110,7 @@ export const CREATE_TABLES: string[] = [
     plan             text NOT NULL DEFAULT 'free'
                      CHECK (plan IN ('free', 'paid')),
     plan_expires_at  timestamptz,
+    funnel_step      text NOT NULL DEFAULT 'quiz_started',
     created_at       timestamptz NOT NULL DEFAULT now()
   )`,
 
@@ -196,33 +197,46 @@ export const CREATE_TABLES: string[] = [
   )`,
 ];
 
-/** Seed rows: intro placeholder copy for the 4 FED profiles. */
+/**
+ * Seed rows for the 4 FED profiles.
+ *
+ * NOTE — the `pillar` values below MUST match the LOCKED profile mapping in
+ * src/quiz/scoring.ts (DOMINANT_PROFILE): fasting → cortisol-crash,
+ * exercise → slow-burn, diet → wired-and-tired. The result page looks up the
+ * profile by dominant pillar, so a mismatch would reveal the wrong profile.
+ * `completely-fed-up` is triggered when all three pillars are high (no single
+ * dominant pillar); it needs a pillar to satisfy the DB CHECK but is always
+ * resolved by slug, so its pillar value is inert — use 'diet'.
+ */
 export const SEED_PROFILES: Array<
   Pick<Profile, "slug" | "name" | "pillar" | "headline" | "oneLiner" | "description">
 > = [
   {
     slug: "wired-and-tired",
     name: "Wired & Tired",
-    pillar: "fasting",
+    pillar: "diet",
     headline: "Tired all day, buzzing at night",
     oneLiner: "Your energy is there — it's just arriving at the wrong time.",
-    description: "Placeholder. Fill exact copy in the quiz feature task.",
+    description:
+      "Food — especially afternoon sugar and heavy meals — is driving the energy waves: a surge, then a crash, then a late-night second wind. It isn't a willpower problem; your fuel timing is just working against you.",
   },
   {
     slug: "cortisol-crash",
     name: "Cortisol Crash",
-    pillar: "exercise",
+    pillar: "fasting",
     headline: "Exhausted before noon",
     oneLiner: "Your body is running on stress, not fuel.",
-    description: "Placeholder. Fill exact copy in the quiz feature task.",
+    description:
+      "Your eating rhythm and stress hormones are tangled — skipping and grazing keep you running on cortisol instead of steady fuel. The fix starts with a gentler, more predictable eating window.",
   },
   {
     slug: "slow-burn",
     name: "Slow Burn",
-    pillar: "diet",
+    pillar: "exercise",
     headline: "Metabolism running on a low flame",
     oneLiner: "No willpower problem — just a plan tuned wrong for you.",
-    description: "Placeholder. Fill exact copy in the quiz feature task.",
+    description:
+      "Your body is holding tension and has stopped responding to movement as relief. The low-effort wins — gentle walks, tension release, a little more protein — nudge the flame back up without the grind.",
   },
   {
     slug: "completely-fed-up",
@@ -230,7 +244,8 @@ export const SEED_PROFILES: Array<
     pillar: "diet",
     headline: "Everything at once, nothing working",
     oneLiner: "Time to hit reset on the whole system.",
-    description: "Placeholder. Fill exact copy in the quiz feature task.",
+    description:
+      "When fasting, movement, and food signals are all loud at once, the answer isn't one more intense plan. It's a gentle reset — one small steady change in each pillar until the whole system settles.",
   },
 ];
 
@@ -271,6 +286,15 @@ export const SEED_PLATES: Array<
     pillar: "diet",
     description: "Aim for a few colours on the plate across the day.",
   },
+];
+
+/**
+ * Idempotent migrations run AFTER table creation so schema changes reach
+ * databases that were created by an older version of the DDL. Ran one
+ * statement per call by ensureSchema().
+ */
+export const MIGRATIONS: string[] = [
+  `ALTER TABLE ${SCHEMA}.users ADD COLUMN IF NOT EXISTS funnel_step text NOT NULL DEFAULT 'quiz_started'`,
 ];
 
 /**
