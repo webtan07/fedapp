@@ -54,6 +54,10 @@ export interface Checkin {
   sleep: number | null; // 0-10
   weight: number | null; // kg
   waist: number | null; // cm
+  /** Daily "Today's Move" completed flag (lives on the daily checkin row). */
+  moveDone: boolean;
+  /** Daily "Today's Plate" completed flag (lives on the daily checkin row). */
+  plateDone: boolean;
   createdAt: Date | string;
 }
 
@@ -152,6 +156,8 @@ export const CREATE_TABLES: string[] = [
     sleep        int CHECK (sleep BETWEEN 0 AND 10),
     weight       numeric(6,2),
     waist        numeric(6,2),
+    move_done    boolean NOT NULL DEFAULT false,
+    plate_done   boolean NOT NULL DEFAULT false,
     created_at   timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT checkins_user_date_key UNIQUE (user_id, date)
   )`,
@@ -269,6 +275,22 @@ export const SEED_MOVES: Array<
     difficulty: "easy",
     instructions: "Gentle full-body stretch to release the day's tension.",
   },
+  {
+    slug: "ten-step-sun",
+    title: "Ten Minutes of Sun",
+    pillar: "exercise",
+    durationMin: 10,
+    difficulty: "easy",
+    instructions: "Step outside, no phone, ten minutes of daylight and easy breathing.",
+  },
+  {
+    slug: "gentle-hills-walk",
+    title: "Gentle Hill Walk",
+    pillar: "exercise",
+    durationMin: 20,
+    difficulty: "moderate",
+    instructions: "A steady walk with a little incline — enough to warm up without grinding.",
+  },
 ];
 
 export const SEED_PLATES: Array<
@@ -286,6 +308,18 @@ export const SEED_PLATES: Array<
     pillar: "diet",
     description: "Aim for a few colours on the plate across the day.",
   },
+  {
+    slug: "warm-morning-plate",
+    title: "Warm Morning Plate",
+    pillar: "diet",
+    description: "Start the day warm — porridge, eggs, or a smoothie with ginger. Easiest on a 40+ system.",
+  },
+  {
+    slug: "afternoon-energy-rescue",
+    title: "Afternoon Energy Rescue",
+    pillar: "diet",
+    description: "Meet the 3pm dip with protein and water before you reach for a sugar spike.",
+  },
 ];
 
 /**
@@ -295,6 +329,12 @@ export const SEED_PLATES: Array<
  */
 export const MIGRATIONS: string[] = [
   `ALTER TABLE ${SCHEMA}.users ADD COLUMN IF NOT EXISTS funnel_step text NOT NULL DEFAULT 'quiz_started'`,
+  // Per-day "done" flags for Today's Move / Today's Plate. Added because the
+  // daily checkin row (UNIQUE user_id+date) is the natural day-scoped log for
+  // all four screens, so a daily move/plate completion and the 4 tracker
+  // sliders coexist on one row instead of a separate table.
+  `ALTER TABLE ${SCHEMA}.checkins ADD COLUMN IF NOT EXISTS move_done boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE ${SCHEMA}.checkins ADD COLUMN IF NOT EXISTS plate_done boolean NOT NULL DEFAULT false`,
 ];
 
 /**

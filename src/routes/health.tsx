@@ -10,8 +10,8 @@ export const Route = createFileRoute("/health")({
 function HealthPage() {
   const data = Route.useLoaderData() as HealthResult;
   return (
-    <div className="min-h-dvh bg-[#191614] px-6 py-16">
-      <pre className="mx-auto max-w-2xl overflow-auto rounded-2xl border border-[#352d26] bg-[#221e1b] p-6 text-sm text-[#cfc4b4]">
+    <div className="min-h-dvh bg-cream px-6 py-16">
+      <pre className="mx-auto max-w-2xl overflow-auto rounded-2xl border border-line bg-paper p-6 text-sm text-ink-soft">
         {JSON.stringify(data, null, 2)}
       </pre>
     </div>

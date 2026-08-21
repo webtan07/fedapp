@@ -6,7 +6,7 @@ import {
   SEED_PLATES,
   SEED_PROFILES,
 } from "./schema";
-import type { Pillar, Profile } from "./schema";
+import type { Move, Pillar, Plate, Profile } from "./schema";
 
 /**
  * Server-only handle to the app's database (Neon serverless Postgres over HTTP).
@@ -156,4 +156,140 @@ export async function listFedTables(): Promise<string[]> {
     ORDER BY table_name
   `;
   return rows.map((r) => r.table_name);
+}
+
+// ── Plan access gate ───────────────────────────────────────────────────────
+/**
+ * True when the user holds an active plan: either a plan_access row at the
+ * 'plan' level that hasn't expired, OR the users row itself is 'paid'. The
+ * four paywalled screens call this; when false they render <Locked/>.
+ * E2E/QA can grant access by inserting a plan_access row (or setting plan).
+ */
+export async function hasActivePlan(userId: number): Promise<boolean> {
+  const rows = await sql()`
+    SELECT
+      (EXISTS (
+        SELECT 1 FROM fed.plan_access
+        WHERE user_id = ${userId} AND access_level = 'plan'
+          AND (expires_at IS NULL OR expires_at > now())
+      )
+      OR EXISTS (
+        SELECT 1 FROM fed.users WHERE id = ${userId} AND plan = 'paid'
+      )) AS "has"
+  `;
+  return rows.length ? Boolean(rows[0].has) : false;
+}
+
+// ── Fasting sessions (server timestamps = source of truth) ─────────────────
+/** Begin a fast. Postgres `now()` sets the server timestamp so streaks survive
+ *  client refreshes / timezones (we never trust a client clock for timing). */
+export async function startFast(
+  userId: number,
+  plannedHours: number | null = null,
+): Promise<void> {
+  const db = sql();
+  await db`INSERT INTO fed.fasting_sessions (user_id, started_at, planned_hours)
+           VALUES (${userId}, now(), ${plannedHours})`;
+}
+/** Close any currently-open fast for this user. */
+export async function endOpenFast(userId: number): Promise<void> {
+  const db = sql();
+  await db`UPDATE fed.fasting_sessions SET ended_at = now()
+           WHERE user_id = ${userId} AND ended_at IS NULL`;
+}
+export interface FastingRow {
+  id: number;
+  startedAt: Date | string;
+  endedAt: Date | string | null;
+  plannedHours: number | null;
+}
+/** Most recent fasts for the history list. */
+export async function listFasts(userId: number, limit = 15): Promise<FastingRow[]> {
+  const db = sql();
+  const rows = await db`
+    SELECT id, started_at AS "startedAt", ended_at AS "endedAt",
+           planned_hours AS "plannedHours"
+    FROM fed.fasting_sessions
+    WHERE user_id = ${userId}
+    ORDER BY started_at DESC
+    LIMIT ${limit}
+  `;
+  return rows as FastingRow[];
+}
+
+// ── Daily checkins (moves/plates done-flag + 4 tracker sliders) ────────────
+export interface CheckinFields {
+  energy?: number | null;
+  sleep?: number | null;
+  weight?: number | null;
+  waist?: number | null;
+  moveDone?: boolean;
+  plateDone?: boolean;
+}
+/**
+ * Idempotent per-(user, date) upsert. Each provided field is merged into the
+ * row; absent fields are preserved (COALESCE keeps the existing value), so a
+ * move-completion and a gadget-slider save coexist on the same daily row.
+ */
+export async function saveCheckin(
+  userId: number,
+  date: string,
+  f: CheckinFields,
+): Promise<void> {
+  const db = sql();
+  await db`
+    INSERT INTO fed.checkins (user_id, date, energy, sleep, weight, waist, move_done, plate_done)
+    VALUES (${userId}, ${date}, ${f.energy ?? null}, ${f.sleep ?? null},
+            ${f.weight ?? null}, ${f.waist ?? null},
+            ${f.moveDone ?? false}, ${f.plateDone ?? false})
+    ON CONFLICT (user_id, date) DO UPDATE SET
+      energy     = COALESCE(EXCLUDED.energy, fed.checkins.energy),
+      sleep      = COALESCE(EXCLUDED.sleep, fed.checkins.sleep),
+      weight     = COALESCE(EXCLUDED.weight, fed.checkins.weight),
+      waist      = COALESCE(EXCLUDED.waist, fed.checkins.waist),
+      move_done  = (fed.checkins.move_done OR EXCLUDED.move_done),
+      plate_done = (fed.checkins.plate_done OR EXCLUDED.plate_done)
+  `;
+}
+export interface CheckinRow {
+  date: string;
+  energy: number | null;
+  sleep: number | null;
+  weight: number | null;
+  waist: number | null;
+  moveDone: boolean;
+  plateDone: boolean;
+}
+/** One day's checkin (used by the tracker + move/plate done flags). */
+export async function getCheckin(userId: number, date: string): Promise<CheckinRow | null> {
+  const db = sql();
+  const rows = await db`
+    SELECT date::text AS date, energy, sleep, weight, waist, move_done AS "moveDone", plate_done AS "plateDone"
+    FROM fed.checkins WHERE user_id = ${userId} AND date = ${date} LIMIT 1
+  `;
+  return rows.length ? (rows[0] as CheckinRow) : null;
+}
+/** All checkin days (for the tracker recap / daily streak computation). */
+export async function listCheckins(userId: number): Promise<CheckinRow[]> {
+  const db = sql();
+  const rows = await db`
+    SELECT date::text AS date, energy, sleep, weight, waist, move_done AS "moveDone", plate_done AS "plateDone"
+    FROM fed.checkins WHERE user_id = ${userId} ORDER BY date ASC
+  `;
+  return rows as CheckinRow[];
+}
+/** All moves (for the deterministic "today's move" pick). */
+export async function listMoves(): Promise<Move[]> {
+  const rows = await sql()`
+    SELECT id, slug, title, pillar, duration_min AS "durationMin",
+           difficulty, instructions FROM fed.moves ORDER BY id
+  `;
+  return rows as Move[];
+}
+/** All plates (for the deterministic "today's plate" pick). */
+export async function listPlates(): Promise<Plate[]> {
+  const rows = await sql()`
+    SELECT id, slug, title, pillar, description FROM fed.plates ORDER BY id
+  `;
+  return rows as Plate[];
 }

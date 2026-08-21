@@ -1,46 +1,64 @@
 @import "tailwindcss";
 
+/* FED brand palette — warm cream/peach/amber sunrise. Evolved from the old
+   dark theme toward the owner-locked visual direction (see FED-VISUAL-DIRECTION.md):
+   warm, hopeful, never clinical. Kept readable: cream background + cocoa ink text. */
 @theme {
-  --color-ink: #191614;
-  --color-ink-soft: #221e1b;
-  --color-card: #2a241f;
-  --color-card-hover: #352d26;
-  --color-cream: #f5eee2;
-  --color-cream-dim: #cfc4b4;
-  --color-muted: #9a8f82;
-  --color-gold: #e8b86b;
-  --color-gold-soft: #c99a4e;
-  --color-sage: #a9b88f;
+  --color-cream: #FFF4E6; /* page background — soft, not sterile white */
+  --color-paper: #FFF9F0; /* card surface, slightly raised off the cream */
+  --color-paper-deep: #FFEFD9; /* hover / wells */
+  --color-ink: #3B2A2C; /* cocoa ink — warm brown-black text */
+  --color-ink-soft: #6E594E; /* secondary text */
+  --color-muted: #8A7263; /* tertiary text / captions */
+  --color-peach: #FF8A5C; /* primary energy */
+  --color-amber: #FFB24D; /* secondary warmth */
+  --color-terracotta: #E85D3D; /* deep energy accent */
+  --color-berry: #D84A6A; /* playful pop */
+  --color-line: #F0D9BA; /* warm borders */
+  --font-display: "Baloo 2", "Quicksand", "Nunito", "ui-rounded", "Trebuchet MS", "Verdana", sans-serif;
 }
 
 @layer base {
   html,
   body {
-    @apply bg-[#191614] text-[#f5eee2] antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    @apply bg-cream text-ink antialiased;
+    font-family: "Nunito", "Nunito Sans", "Poppins", -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, sans-serif;
     line-height: 1.65;
+  }
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
   }
 }
 
-/* Warm, calm gradient accent — "feeling understood", not stats. */
+/* Signature sunrise gradient for display text — the FED wordmark in CSS form. */
 .text-warm {
-  background: linear-gradient(100deg, #e8b86b 0%, #d5a75e 45%, #b98e4a 100%);
+  background: linear-gradient(100deg, #ff8a5c 0%, #ffb24d 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .shadow-glow {
-  box-shadow: 0 10px 40px rgba(232, 184, 107, 0.12);
+  box-shadow: 0 12px 40px rgba(255, 138, 92, 0.22);
 }
 .card {
-  @apply rounded-2xl border border-[#352d26] bg-[#221e1b] p-6;
+  @apply rounded-2xl border border-line bg-paper p-6;
 }
 .btn-primary {
-  @apply inline-flex items-center justify-center rounded-full bg-[#e8b86b] px-7 py-3 font-semibold text-[#191614] transition hover:bg-[#f0c47c] disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center rounded-full bg-gradient-to-r from-peach to-amber px-7 py-3 font-semibold text-ink transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+  box-shadow: 0 12px 40px rgba(255, 138, 92, 0.22);
 }
 .btn-secondary {
-  @apply inline-flex items-center justify-center rounded-full border border-[#352d26] px-7 py-3 font-medium text-[#f5eee2] transition hover:bg-[#2a241f];
+  @apply inline-flex items-center justify-center rounded-full border border-line bg-paper px-7 py-3 font-medium text-ink transition hover:bg-paper-deep;
 }
 .pill {
-  @apply inline-flex items-center rounded-full border border-[#352d26] bg-[#221e1b] px-4 py-1.5 text-sm text-[#cfc4b4];
+  @apply inline-flex items-center rounded-full border border-line bg-paper px-4 py-1.5 text-sm text-ink-soft;
+}
+/* Small round "pillar" tag — F / E / D chip. */
+.pillar-chip {
+  @apply inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-peach to-amber text-sm font-bold text-ink;
 }
