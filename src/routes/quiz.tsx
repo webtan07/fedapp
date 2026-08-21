@@ -53,6 +53,15 @@ function QuizPage() {
     try {
       const res = await submitQuiz({ data: { email, answers } });
       const r = res.result;
+      // Remember that this session already gave us their email (and that the
+      // submitQuiz server fn already created their user row), so /result
+      // reveals the score immediately instead of asking again.
+      try {
+        sessionStorage.setItem("fed_email", email.trim().toLowerCase());
+        sessionStorage.setItem("fed_userId", String(res.userId));
+      } catch {
+        /* storage may be unavailable — /result will just show the gate */
+      }
       await navigate({
         to: "/result",
         search: {

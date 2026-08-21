@@ -44,7 +44,7 @@ Tables created in `fed`:
 | Path | Purpose |
 |------|---------|
 | `/` | Landing / quiz-landing |
-| `/result` | Result + sales page (placeholder) |
+| `/result` | Result + sales page (email gate → score/profile reveal → 3 teaser moves → Get FED paywall CTA) |
 | `/health` | Healthcheck page (DB connectivity) |
 | `/app` | Paywalled app home (plan) |
 | `/app/fasting` | Fasting Timer screen |
