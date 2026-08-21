@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { FEDWordmark } from "~/components/brand";
+import { LegalFooter } from "~/components/footer";
 import { ANSWER_OPTIONS, QUESTIONS, QUESTION_COUNT } from "~/quiz/questions";
 import type { QuizAnswers } from "~/quiz/scoring";
 import { submitQuiz } from "~/routes/api/quiz";
@@ -190,11 +191,9 @@ function QuizPage() {
           )}
         </div>
 
-        <p className="mt-8 text-center text-xs text-muted">
-          FED is a general wellness product, not medical advice. Always consult
-          your doctor before changing your diet, fasting, or exercise routine.
-        </p>
       </main>
+      {/* Medical disclaimer + legal links footer. */}
+      <LegalFooter />
     </div>
   );
 }

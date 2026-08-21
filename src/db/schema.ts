@@ -233,7 +233,7 @@ export const SEED_PROFILES: Array<
     headline: "Exhausted before noon",
     oneLiner: "Your body is running on stress, not fuel.",
     description:
-      "Your eating rhythm and stress hormones are tangled — skipping and grazing keep you running on cortisol instead of steady fuel. The fix starts with a gentler, more predictable eating window.",
+      "Your eating rhythm and your stress are tangled — skipping and grazing keep you running on empty instead of on steady fuel. The first step is a gentler, more predictable eating window.",
   },
   {
     slug: "slow-burn",
