@@ -47,7 +47,7 @@ export const captureEmail = createServerFn()
 
 export interface ProfileDataResult {
   profile: Profile | null;
-  /** Stripe payment-link URL for the "Get FED" CTA (placeholder until set). */
+  /** Stripe payment-link URL for the "Get FED" founding plan. */
   paywallUrl: string;
   /** Founding price framing shown on the paywall CTA. */
   priceLabel: string;
@@ -63,7 +63,8 @@ export const getProfileData = createServerFn()
     return {
       profile,
       paywallUrl: config.paywallUrl,
-      priceLabel: "$19–29/mo · founding membership",
+      // Founding membership is a one-time $19 offer (owner-chosen model).
+      priceLabel: "$19 founding · one-time",
     };
   });
 

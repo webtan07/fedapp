@@ -1,7 +1,10 @@
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { SunBadge } from "./brand";
 import { DisclaimerNote, LegalFooter } from "./footer";
+import { STRIPE_PAYWALL_URL } from "~/site";
+import { unlockWithEmail } from "~/routes/api/app";
 
 const PAGES = [
   { href: "/app", label: "My Plan" },
@@ -55,8 +58,42 @@ export function AppShell({
 /**
  * Content shown inside the shell when the user has no active plan_access row.
  * Rendered by the four app screens when `plan` is false.
+ *
+ * Two paths out of the lock screen:
+ *  1. "Get FED" — opens the real $19 Stripe founding checkout (STRIPE_PAYWALL_URL).
+ *  2. After purchase — the returning buyer enters the email they paid with and
+ *     the server grants plan_access (unlockWithEmail), which unlocks /app.
  */
 export function Locked({ title, blurb }: { title: string; blurb?: string }) {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  const onUnlock = async () => {
+    const value = email.trim().toLowerCase();
+    if (!value || !/^\S+@\S+\.\S+$/.test(value)) {
+      setError("Enter the email you used at checkout to unlock your plan.");
+      return;
+    }
+    setState("busy");
+    setError(null);
+    try {
+      const res = await unlockWithEmail({ data: { email: value } });
+      try {
+        sessionStorage.setItem("fed_email", res.email);
+        sessionStorage.setItem("fed_userId", String(res.userId));
+      } catch {
+        /* storage unavailable — ignore */
+      }
+      setState("done");
+      // The shell polls plan status on mount; a quick reload refreshes it.
+      setTimeout(() => window.location.reload(), 500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "We couldn't unlock your plan just now. Please try again.");
+      setState("error");
+    }
+  };
+
   return (
     <div className="mx-auto max-w-md text-center">
       <div className="mx-auto mb-6 w-fit">
@@ -68,11 +105,60 @@ export function Locked({ title, blurb }: { title: string; blurb?: string }) {
           "This is where your daily plan lives once you're in. Upgrade to unlock your personalized FED plan."}
       </p>
       <DisclaimerNote className="mt-4" />
+
+      {/* Prominent Get FED → real Stripe checkout ($19 founding, one-time). */}
       <div className="mt-6">
-        <Link to="/quiz" className="btn-primary">
-          Get FED
-        </Link>
+        <a
+          href={STRIPE_PAYWALL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-primary w-full"
+        >
+          Get FED — $19 founding · one-time
+        </a>
+        <p className="mt-2 text-xs text-muted">Founding members lock today’s rate for life.</p>
       </div>
+
+      {/* Returning-buyer email handoff → grants plan_access. */}
+      <div className="card mt-8 text-left">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted">Already bought FED?</p>
+        <p className="mt-1 text-sm text-ink-soft">
+          Enter the email you used at checkout to unlock your plan:
+        </p>
+        <div className="mt-3 flex flex-col gap-3">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (error) setError(null);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && onUnlock()}
+            placeholder="you@example.com"
+            disabled={state === "busy"}
+            className="rounded-full border border-line bg-paper px-5 py-3 text-ink placeholder-muted outline-none focus:border-peach disabled:opacity-60"
+          />
+          <button
+            onClick={onUnlock}
+            disabled={state === "busy"}
+            className="btn-secondary w-full"
+          >
+            {state === "busy" ? "Unlocking…" : "Unlock my plan"}
+          </button>
+          {state === "done" && (
+            <p className="text-sm text-ink">You’re in — reloading your plan…</p>
+          )}
+          {error && <p className="text-sm text-terracotta">{error}</p>}
+        </div>
+      </div>
+
+      <p className="mt-6 text-xs text-muted">
+        Need help? Email{" "}
+        <a href="mailto:admin@webdigitalassistants.com" className="underline hover:text-peach">
+          admin@webdigitalassistants.com
+        </a>
+        .
+      </p>
     </div>
   );
 }

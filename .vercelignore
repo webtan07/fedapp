@@ -1,0 +1,22 @@
+# --- FED .vercelignore ---
+# We deploy via the Build Output API (build-vercel.sh + CLI --prebuilt), so the
+# CLI only needs .vercel/output. Excluding source/deps keeps the local working
+# tree out of any non-prebuilt upload path and avoids machine-dependence.
+node_modules
+.git
+dist
+src
+scripts
+test
+.run
+.tanstack
+.cache
+.env*
+package.json
+bun.lock
+tsconfig.json
+vite.config.ts
+serve.ts
+vercel-entry.ts
+build-vercel.sh
+README.md
