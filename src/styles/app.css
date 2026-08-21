@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #191614;
+  --color-ink-soft: #221e1b;
+  --color-card: #2a241f;
+  --color-card-hover: #352d26;
+  --color-cream: #f5eee2;
+  --color-cream-dim: #cfc4b4;
+  --color-muted: #9a8f82;
+  --color-gold: #e8b86b;
+  --color-gold-soft: #c99a4e;
+  --color-sage: #a9b88f;
+}
+
+@layer base {
+  html,
+  body {
+    @apply bg-[#191614] text-[#f5eee2] antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.65;
+  }
+}
+
+/* Warm, calm gradient accent — "feeling understood", not stats. */
+.text-warm {
+  background: linear-gradient(100deg, #e8b86b 0%, #d5a75e 45%, #b98e4a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.shadow-glow {
+  box-shadow: 0 10px 40px rgba(232, 184, 107, 0.12);
+}
+.card {
+  @apply rounded-2xl border border-[#352d26] bg-[#221e1b] p-6;
+}
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-full bg-[#e8b86b] px-7 py-3 font-semibold text-[#191614] transition hover:bg-[#f0c47c] disabled:cursor-not-allowed disabled:opacity-50;
+}
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-full border border-[#352d26] px-7 py-3 font-medium text-[#f5eee2] transition hover:bg-[#2a241f];
+}
+.pill {
+  @apply inline-flex items-center rounded-full border border-[#352d26] bg-[#221e1b] px-4 py-1.5 text-sm text-[#cfc4b4];
+}
