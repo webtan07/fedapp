@@ -78,7 +78,7 @@ export function MoveScreen() {
             <p className="mt-4 text-ink-soft">{state.move.instructions}</p>
 
             {state.done ? (
-              <p className="mt-6 rounded-full bg-paper-deep px-4 py-3 text-center font-semibold text-berry">
+              <p className="mt-6 rounded-lg bg-paper-deep px-4 py-3 text-center font-semibold text-berry">
                 ✓ Beautifully done today — show up for yourself.
               </p>
             ) : (
