@@ -1,20 +1,24 @@
 /**
  * FED brand primitives — inline SVG wordmark + sun badge.
  *
- * The logo raster (fed-logo.png) shipped with a solid cream background, so we
- * re-draw the wordmark as an inline SVG here for crisp, transparent rendering
- * in the nav / footer / share card, using the brand palette:
- *   cream #FFF4E6 · peach #FF8A5C · amber #FFB24D · terracotta #E85D3D
- *   berry #D84A6A · cocoa ink #3B2A2C · signature gradient #FF8A5C→#FFB24D
+ * Rendered as crisp inline SVG for the nav / footer / share card, using the
+ * refined, high-end palette:
+ *   ivory #F4EEE4 · muted terracotta-peach #D97B4F · soft gold #C98F45
+ *   deep terracotta #B04A2E · warm espresso #2B1F1C
+ *   signature gradient #C1673C → #C98F45
+ * The sun is a clean, minimal rising-disk mark (no chunky rays) so it reads
+ * premium and restrained while keeping the warm "sunrise" DNA.
  */
-export const FED_GRADIENT = "linear-gradient(100deg,#FF8A5C 0%,#FFB24D 100%)";
-
+export const FED_GRADIENT = "linear-gradient(100deg,#C1673C 0%,#C98F45 100%)";
 const DISPLAY_FONT =
-  "'Baloo 2','Quicksand','Nunito','ui-rounded','Trebuchet MS','Verdana',sans-serif";
+  "'Fraunces','Cormorant Garamond','Playfair Display',Georgia,'Times New Roman',serif";
+const SUN_CORE = "#C97B45";
+const SUN_EDGE = "#C98F45";
 
 /**
- * The FED sun — a warm sunrise badge. `filled` renders the solid gradient disk
- * (for the share-card gradient band); otherwise a soft dawn-glow disc.
+ * The FED sun — a clean, minimal warm disk. `filled` renders a solid gradient
+ * disc (for the share-card gradient band); otherwise a soft dawn disc on a
+ * thin ring. No chunky rays — sleek and high-end, yet still warm.
  */
 export function SunBadge({ size = 64, filled = true }: { size?: number; filled?: boolean }) {
   return (
@@ -26,44 +30,30 @@ export function SunBadge({ size = 64, filled = true }: { size?: number; filled?:
       style={{ display: "block", overflow: "visible" }}
     >
       <defs>
-        <radialGradient id="fedSunGrad" cx="50%" cy="50%" r="60%">
-          <stop offset="0%" stopColor="#FFB24D" />
-          <stop offset="100%" stopColor="#FF8A5C" />
+        <radialGradient id="fedSunGrad" cx="50%" cy="50%" r="62%">
+          <stop offset="0%" stopColor={SUN_EDGE} />
+          <stop offset="100%" stopColor={SUN_CORE} />
         </radialGradient>
       </defs>
-      {filled && (
-        <circle cx="32" cy="32" r="22" fill="url(#fedSunGrad)" />
-      )}
-      {/* sunrise rays */}
-      {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => {
-        const rad = (a * Math.PI) / 180;
-        const x1 = 32 + Math.cos(rad) * (filled ? 26 : 24);
-        const y1 = 32 + Math.sin(rad) * (filled ? 26 : 24);
-        const x2 = 32 + Math.cos(rad) * 31;
-        const y2 = 32 + Math.sin(rad) * 31;
-        return (
-          <line
-            key={a}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="#FFB24D"
-            strokeWidth="4"
-            strokeLinecap="round"
-            opacity={filled ? 0.9 : 0.7}
-          />
-        );
-      })}
-      {!filled && <circle cx="32" cy="32" r="20" fill="#FF8A5C" opacity="0.85" />}
+      <circle cx="32" cy="32" r="19" fill="url(#fedSunGrad)" />
+      <circle
+        cx="32"
+        cy="32"
+        r="19"
+        fill="none"
+        stroke={filled ? "rgba(255,255,255,0.35)" : "#B04A2E"}
+        strokeOpacity={filled ? 1 : 0.18}
+        strokeWidth="1.5"
+      />
+      {!filled && <circle cx="32" cy="32" r="7" fill="#B04A2E" opacity="0.28" />}
     </svg>
   );
 }
 
 /**
- * The FED wordmark — all-caps, sunrise gradient, optional sun to the left.
- * Renders as a crisp inline SVG (never the solid-bg PNG). `withSun` draws the
- * sun before the mark (nav/app header); `textOnly` is for tight spots.
+ * The FED wordmark — all-caps serif, refined sunrise gradient, optional
+ * minimal sun to the left. `withSun` draws the sun before the mark (nav/app
+ * header); `textOnly` is for tight spots.
  */
 export function FEDWordmark({
   size = 30,
@@ -75,7 +65,7 @@ export function FEDWordmark({
   withSun?: boolean;
   className?: string;
 }) {
-  const textX = withSun ? 84 : 12;
+  const textX = withSun ? 78 : 12;
   return (
     <svg
       viewBox="0 0 230 44"
@@ -88,29 +78,27 @@ export function FEDWordmark({
     >
       <defs>
         <linearGradient id="fedWord" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#FF8A5C" />
-          <stop offset="100%" stopColor="#FFB24D" />
+          <stop offset="0%" stopColor="#C1673C" />
+          <stop offset="100%" stopColor="#C98F45" />
         </linearGradient>
+        <radialGradient id="fedSunGrad2" cx="50%" cy="50%" r="60%">
+          <stop offset="0%" stopColor={SUN_EDGE} />
+          <stop offset="100%" stopColor={SUN_CORE} />
+        </radialGradient>
       </defs>
       {withSun && (
         <g>
-          <circle cx="30" cy="22" r="15" fill="url(#fedSunGrad2)" opacity="0.35" />
-          <circle cx="30" cy="22" r="10" fill="url(#fedSunGrad2)" />
+          <circle cx="24" cy="22" r="11" fill="url(#fedSunGrad2)" opacity="0.28" />
+          <circle cx="24" cy="22" r="6.5" fill="url(#fedSunGrad2)" />
         </g>
       )}
-      <defs>
-        <radialGradient id="fedSunGrad2" cx="50%" cy="50%" r="60%">
-          <stop offset="0%" stopColor="#FFB24D" />
-          <stop offset="100%" stopColor="#FF8A5C" />
-        </radialGradient>
-      </defs>
       <text
         x={textX}
-        y="33"
+        y="32"
         fontFamily={DISPLAY_FONT}
         fontSize="30"
-        fontWeight="800"
-        letterSpacing="1.5"
+        fontWeight="700"
+        letterSpacing="3"
         fill="url(#fedWord)"
       >
         FED

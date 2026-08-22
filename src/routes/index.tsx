@@ -8,9 +8,9 @@ export const Route = createFileRoute("/")({
 
 /**
  * FED landing / quiz-landing. Sells "feeling understood", not stats — warm,
- * hopeful copy on the new warm-cream brand. Uses the designer's sunrise hero
- * (fed-hero.png) behind the headline, the inline-SVG wordmark, and keeps the
- * medical-disclaimer footer on this public page.
+ * hopeful copy on the refined ivory brand. Clean, typographic hero (no
+ * background photo), the inline-SVG wordmark, and keeps the medical-disclaimer
+ * footer on this public page.
  */
 function IndexPage() {
   return (
@@ -21,33 +21,25 @@ function IndexPage() {
           <span className="pill">For 40+ bodies &amp; brains</span>
         </nav>
 
-        {/* Hero — sunrise image behind the headline (negative space top-center). */}
-        <section className="relative -mx-6 overflow-hidden rounded-b-3xl">
-          <img
-            src="/static/fed-hero.png"
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            aria-hidden="true"
-          />
-          <div className="relative z-10 px-8 pb-16 pt-16 text-center sm:pt-24">
-            <p className="mx-auto mb-4 w-fit text-sm font-bold uppercase tracking-[0.25em] text-terracotta">
-              Fasting · Exercise · Diet
-            </p>
-            <h1 className="font-display text-4xl font-extrabold leading-tight sm:text-6xl">
-              Are you <span className="text-warm">FED up</span>?
-            </h1>
-            <p className="mx-auto mt-5 max-w-xl text-lg font-medium text-ink">
-              Exhausted. Burning out. Already tried every diet and fast that
-              promised a fix. It’s not a willpower problem — it’s a plan problem.
-              Take the 2-minute quiz and get a FED plan that finally fits{" "}
-              <em>you</em>.
-            </p>
-            <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <Link to="/quiz" className="btn-primary">
-                Take the FED quiz
-              </Link>
-              <span className="text-sm font-medium text-ink-soft">~2 minutes · no stats</span>
-            </div>
+        {/* Hero — clean, typographic, premium. No background photo. */}
+        <section className="border-b border-line pb-14 pt-10 text-center sm:pt-16">
+          <p className="mx-auto mb-5 w-fit text-xs font-bold uppercase tracking-[0.3em] text-terracotta">
+            Fasting · Exercise · Diet
+          </p>
+          <h1 className="font-display text-5xl font-bold leading-tight tracking-tight text-ink sm:text-7xl">
+            Are you <span className="text-warm">FED up</span>?
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-lg font-medium leading-relaxed text-ink-soft">
+            Exhausted. Burning out. Already tried every diet and fast that
+            promised a fix. It’s not a willpower problem — it’s a plan problem.
+            Take the 2-minute quiz and get a FED plan that finally fits{" "}
+            <em>you</em>.
+          </p>
+          <div className="mt-9 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <Link to="/quiz" className="btn-primary">
+              Take the FED quiz
+            </Link>
+            <span className="text-sm font-medium text-ink-soft">~2 minutes · no stats</span>
           </div>
         </section>
 
@@ -58,7 +50,7 @@ function IndexPage() {
             { k: "D", t: "Diet", d: "Food that fuels a 40+ metabolism — no forbidden-lists, no guilt." },
           ].map((p) => (
             <div key={p.k} className="card text-left">
-              <div className="pillar-chip mb-3 flex h-11 w-11 items-center justify-center rounded-full text-lg">
+              <div className="pillar-chip mb-3 flex h-11 w-11 items-center justify-center text-lg">
                 {p.k}
               </div>
               <h3 className="font-display text-lg font-bold">{p.t}</h3>

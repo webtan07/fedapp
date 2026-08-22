@@ -76,7 +76,7 @@ export function PlateScreen() {
             </p>
 
             {state.done ? (
-              <p className="mt-6 rounded-full bg-paper-deep px-4 py-3 text-center font-semibold text-berry">
+              <p className="mt-6 rounded-lg bg-paper-deep px-4 py-3 text-center font-semibold text-berry">
                 ✓ Great — fuel on your own terms today.
               </p>
             ) : (

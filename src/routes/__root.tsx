@@ -19,7 +19,7 @@ export const Route = createRootRoute({
         content:
           "FED helps you get your energy back with a warm plan for food, movement, and energy. Take the 2-minute quiz: Are you FED up? Get FED.",
       },
-      { name: "theme-color", content: "#FF8A5C" },
+      { name: "theme-color", content: "#C1673C" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "mobile-web-app-capable", content: "yes" },
       {

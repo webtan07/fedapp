@@ -151,7 +151,7 @@ export function TrackerScreen() {
                   max={s.max}
                   value={val}
                   onChange={(e) => change(s.key, Number(e.target.value))}
-                  className="w-full accent-[#FF8A5C]"
+                  className="w-full accent-[#C1673C]"
                 />
                 <div
                   className="mt-1 h-1.5 rounded-full bg-gradient-to-r from-peach to-amber"

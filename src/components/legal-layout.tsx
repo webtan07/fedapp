@@ -5,7 +5,8 @@ import { LegalFooter } from "./footer";
 
 /**
  * Shared chrome for the three legal pages (Disclaimer / Privacy / Terms).
- * Warm brand theme: cream bg, cocoa ink, peach accents, rounded display font.
+ * Refined brand theme: ivory bg, warm espresso ink, muted terracotta accents,
+ * editorial serif display font.
  * `children` are the page's sections — use the exported heading/paragraph
  * helpers below so all three pages share the same reading rhythm.
  */
