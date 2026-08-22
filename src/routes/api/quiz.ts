@@ -1,8 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { ensureSchema, getOrCreateUser, sql } from "~/db/db";
+import { ensureSchema, getOrCreateUser, getProfileBySlug, sql } from "~/db/db";
 import { requireEnv } from "~/config";
 import { QUESTIONS } from "~/quiz/questions";
 import { scoreQuiz, type QuizAnswers, type QuizResult } from "~/quiz/scoring";
+import { intensityLabel, sendQuizResultEmail } from "~/email";
 
 export interface SubmitQuizInput {
   /** Captured before the score reveal so we can create/return the user. */
@@ -66,6 +67,31 @@ export const submitQuiz = createServerFn()
         VALUES (${attemptId}, ${q.key}, ${data.answers[q.key] ?? 0})
       `;
     }
+
+    // Fire the "here's your result" email AFTER the attempt is persisted. It is
+    // intentionally non-blocking (not awaited) so a slow/failing SMTP never
+    // delays or breaks quiz submission or the UI — failures are caught+logged.
+    // We only ever send to the email the user just explicitly submitted.
+    void (async () => {
+      try {
+        const profile =
+          (await getProfileBySlug(result.profileSlug)) ?? null;
+        await sendQuizResultEmail({
+          to: user.email,
+          score: result.total,
+          profileName: profile?.name ?? result.profileSlug,
+          intensityLabel: intensityLabel(result.intensity),
+          pillars: {
+            fasting: result.fp,
+            exercise: result.ep,
+            diet: result.dp,
+          },
+        });
+        console.log(`[email] FED result sent to ${user.email} (attempt ${attemptId})`);
+      } catch (e) {
+        console.error(`[email] FED result email FAILED for ${user.email}:`, e);
+      }
+    })();
 
     return { success: true, attemptId, userId: user.id, result };
   });

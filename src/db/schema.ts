@@ -11,7 +11,7 @@
  */
 
 // ── Domain types ──────────────────────────────────────────────────────────
-export type Plan = "free" | "paid";
+export type Plan = "free" | "paid" | "tester";
 export type AccessLevel = "free" | "plan";
 export type Pillar = "fasting" | "exercise" | "diet";
 export type Intensity = "low" | "mid" | "high";
@@ -193,7 +193,7 @@ export const CREATE_TABLES: string[] = [
     id                  serial PRIMARY KEY,
     user_id             int NOT NULL REFERENCES ${SCHEMA}.users(id) ON DELETE CASCADE,
     plan                text NOT NULL DEFAULT 'paid'
-                        CHECK (plan IN ('free', 'paid')),
+                        CHECK (plan IN ('free', 'paid', 'tester')),
     access_level        text NOT NULL DEFAULT 'free'
                         CHECK (access_level IN ('free', 'plan')),
     stripe_session_id   text,
@@ -335,6 +335,11 @@ export const MIGRATIONS: string[] = [
   // sliders coexist on one row instead of a separate table.
   `ALTER TABLE ${SCHEMA}.checkins ADD COLUMN IF NOT EXISTS move_done boolean NOT NULL DEFAULT false`,
   `ALTER TABLE ${SCHEMA}.checkins ADD COLUMN IF NOT EXISTS plate_done boolean NOT NULL DEFAULT false`,
+  // Allow the shared tester-code grant to tag its plan_access row with
+  // plan='tester' (distinct from 'paid' for the UNIQUE(user_id,plan) key and
+  // from 'free'). Rebuild the CHECK so existing databases accept it.
+  `ALTER TABLE ${SCHEMA}.plan_access DROP CONSTRAINT IF EXISTS plan_access_plan_check`,
+  `ALTER TABLE ${SCHEMA}.plan_access ADD CONSTRAINT plan_access_plan_check CHECK (plan IN ('free', 'paid', 'tester'))`,
 ];
 
 /**
