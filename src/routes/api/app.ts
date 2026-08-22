@@ -1,11 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireEnv } from "~/config";
+import { config, requireEnv } from "~/config";
 import {
   endOpenFast,
   ensureSchema,
   getCheckin,
   getOrCreateUser,
   grantPlanAccess,
+  grantTesterAccess,
   hasActivePlan,
   listCheckins,
   listFasts,
@@ -88,6 +89,49 @@ export const unlockWithEmail = createServerFn()
     await ensureSchema();
     const user = await getOrCreateUser(data.email);
     await grantPlanAccess(user.id);
+    return { success: true, userId: user.id, email: user.email, hasPlan: true };
+  });
+
+// ── Shared tester code (free unlock, no Stripe) ─────────────────────────────
+export interface TesterUnlockInput {
+  /** The shared tester code the owner hands out (env TESTER_CODE, default FEDTEST). */
+  code: string;
+  /** Email to create/find the tester's user account so they can hold plan_access. */
+  email: string;
+}
+export interface TesterUnlockResult {
+  success: true;
+  userId: number;
+  email: string;
+  hasPlan: true;
+}
+/**
+ * Free unlock for testers using the single shared code — no Stripe required.
+ *
+ * The code is env-backed (TESTER_CODE, default "FEDTEST") so the owner can
+ * change it WITHOUT a redeploy. Comparison is case-insensitive and trimmed.
+ * On a match we create/find the tester's user by email and grant a free
+ * 'tester' plan_access row (grantTesterAccess), which unlocks /app exactly like
+ * a paid grant but stays marked as 'tester' (users.plan stays 'free').
+ */
+export const unlockWithTesterCode = createServerFn()
+  .validator((d: TesterUnlockInput) => {
+    if (!d || typeof d.code !== "string" || d.code.trim() === "") {
+      throw new Error("Enter your tester code to unlock FED for free.");
+    }
+    if (!d || typeof d.email !== "string" || !/^\S+@\S+\.\S+$/.test(d.email.trim())) {
+      throw new Error("Enter an email to set up your tester account.");
+    }
+    return { code: d.code.trim(), email: d.email.trim().toLowerCase() };
+  })
+  .handler(async ({ data }): Promise<TesterUnlockResult> => {
+    if (data.code.toLowerCase() !== config.testerCode.trim().toLowerCase()) {
+      throw new Error("That tester code isn't recognized. Double-check it, or use Get FED to unlock.");
+    }
+    requireEnv("databaseUrl");
+    await ensureSchema();
+    const user = await getOrCreateUser(data.email);
+    await grantTesterAccess(user.id);
     return { success: true, userId: user.id, email: user.email, hasPlan: true };
   });
 

@@ -201,6 +201,26 @@ export async function grantPlanAccess(userId: number): Promise<void> {
   await db`UPDATE fed.users SET plan = 'paid' WHERE id = ${userId}`;
 }
 
+/**
+ * Grant a free "tester" plan to a user via the shared tester code. Uses the
+ * SAME gate as a paid grant (plan_access row at access_level 'plan', never
+ * expiring) but with plan 'tester' (NOT 'paid') and a 'tester' note in
+ * stripe_session_id so testers stay clearly distinguishable from paid users
+ * (users.plan stays 'free'). Idempotent — safe to call repeatedly.
+ */
+export async function grantTesterAccess(userId: number): Promise<void> {
+  const db = sql();
+  await db`
+    INSERT INTO fed.plan_access (user_id, plan, access_level, granted_at, expires_at, stripe_session_id)
+    VALUES (${userId}, 'tester', 'plan', now(), NULL, 'tester')
+    ON CONFLICT (user_id, plan) DO UPDATE SET
+      access_level = 'plan',
+      granted_at   = now(),
+      expires_at   = NULL,
+      stripe_session_id = 'tester'
+  `;
+}
+
 // ── Fasting sessions (server timestamps = source of truth) ─────────────────
 /** Begin a fast. Postgres `now()` sets the server timestamp so streaks survive
  *  client refreshes / timezones (we never trust a client clock for timing). */

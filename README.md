@@ -63,6 +63,32 @@ Tables created in `fed`:
   (`grantPlanAccess`, src/db/db.ts). **This is an honor-system activation** — we
   cannot verify the purchase server-side. The path to verified automatic
   activation is a real Stripe webhook once the owner's own Stripe keys exist.
+- **Tester code (free unlock, no Stripe):** the lock screen also accepts a
+  single shared tester code — env `TESTER_CODE` (default `FEDTEST`), read via
+  src/config.ts at unlock time so it can be rotated WITHOUT a redeploy.
+  `unlockWithTesterCode` (src/routes/api/app.ts) compares it case-insensitively
+  against `config.testerCode` and, on a match, grants `plan_access` via
+  `grantTesterAccess` (src/db/db.ts). That row uses `plan='tester'` (never
+  flips `users.plan` to 'paid'), so testers are clearly distinguishable from
+  paid users while unlocking the exact same 4-screen app. The tester also
+  enters an email so we can create/find their user account.
+
+## Auto-email the FED result
+When a user completes the quiz and submits their email, `submitQuiz`
+(src/routes/api/quiz.ts) automatically emails them the result after the attempt
+is persisted: FED score /24, profile name + intensity tier, the F/E/D pillar
+breakdown, and a link to their plan (paywall). The send is **non-blocking and
+safe** — it fires after the attempt is saved, is wrapped in try/catch, and a
+mail failure never breaks quiz submission or the UI (failures are logged).
+- **Sender:** the business's shared Gmail app-password SMTP
+  (`admin@webdigitalassistants.com`) — the same credentials the WDA site uses.
+  Values come from the env (see below), never hardcoded.
+- **SMTP env vars** (fedapp `.env` / Vercel env): `EMAIL_USER`,
+  `EMAIL_APP_PASSWORD`, plus optional `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE`
+  (defaults: smtp.gmail.com, 465, true). Wiring lives in src/email.ts.
+- Content is warm and honest (no medical claims), includes the
+  "you're not broken — here's how to feel FED" spirit, and carries the standard
+  medical-disclaimer line.
 
 ## Deploy (Vercel, Build Output API — CLI --prebuilt only)
 Do NOT `vercel link` / git-connect (git auto-builds have hijacked aliases on

@@ -23,22 +23,57 @@ export interface AppConfig {
    * local dev alike. Set PAYWALL_URL on the host to override/relink.
    */
   paywallUrl: string;
+  /**
+   * Shared tester access code — lets testers unlock the paywalled app for free
+   * without going through Stripe, so the owner can hand out one code. Read from
+   * the TESTER_CODE env var (so it can be changed WITHOUT a redeploy); defaults
+   * to "FEDTEST". Compared case-insensitively/trimmed at unlock time.
+   */
+  testerCode: string;
+  /**
+   * SMTP sender for transactional mail (the Gmail app-password SMTP the
+   * business already uses from admin@webdigitalassistants.com — see the WDA
+   * site's src/email.ts). EMAIL_USER / EMAIL_APP_PASSWORD are the Gmail auth;
+   * SMTP_HOST/PORT/SECURE override the default Gmail SMTP when needed.
+   */
+  emailUser?: string;
+  emailAppPassword?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
 }
 const str = (key: string) => {
   const v = process.env[key];
   return v && v.trim() !== "" ? v.trim() : undefined;
+};
+const strBool = (key: string): boolean | undefined => {
+  const v = str(key);
+  if (v === undefined) return undefined;
+  return v === "1" || v.toLowerCase() === "true";
 };
 export const config: AppConfig = {
   databaseUrl: str("DATABASE_URL"),
   appBaseUrl: str("APP_BASE_URL") ?? "http://localhost:3101",
   port: Number(str("PORT") ?? "3101") || 3101,
   paywallUrl: str("PAYWALL_URL") ?? STRIPE_PAYWALL_URL,
+  testerCode: str("TESTER_CODE") ?? "FEDTEST",
+  emailUser: str("EMAIL_USER"),
+  emailAppPassword: str("EMAIL_APP_PASSWORD"),
+  smtpHost: str("SMTP_HOST"),
+  smtpPort: Number(str("SMTP_PORT") ?? "") || undefined,
+  smtpSecure: strBool("SMTP_SECURE"),
 };
 const ENV_KEY_BY_CONFIG_KEY: Record<keyof AppConfig, string> = {
   databaseUrl: "DATABASE_URL",
   appBaseUrl: "APP_BASE_URL",
   port: "PORT",
   paywallUrl: "PAYWALL_URL",
+  testerCode: "TESTER_CODE",
+  emailUser: "EMAIL_USER",
+  emailAppPassword: "EMAIL_APP_PASSWORD",
+  smtpHost: "SMTP_HOST",
+  smtpPort: "SMTP_PORT",
+  smtpSecure: "SMTP_SECURE",
 };
 /**
  * Throw a descriptive error listing every requested var that is unset.
