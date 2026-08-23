@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import type { Intensity, Pillar, Profile } from "~/db/schema";
 import {
@@ -6,6 +6,7 @@ import {
   getProfileData,
   markRevealed,
 } from "~/routes/api/result";
+import { unlockWithTesterCode } from "~/routes/api/app";
 import { DynamicShareCard } from "~/components/share-card";
 import { toPng } from "html-to-image";
 import { FEDWordmark } from "~/components/brand";
@@ -98,9 +99,71 @@ function userIdInSession(): number | null {
 
 function ResultPage() {
   const search = Route.useSearch();
+  const navigate = useNavigate();
   const hasResult = search.total !== undefined && search.profile !== undefined;
   const cardRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
+
+  // Discount-code (tester) flow on the paywall. The shared code is loaded from
+  // the server with the rest of the profile config; a valid code flips the CTA
+  // to a free "get FED" unlock. Email is prefilled from the capture gate so the
+  // tester's account is set up — they can edit it if they paid/registered with
+  // a different one.
+  const [testerCode, setTesterCode] = useState("");
+  const [testerOpen, setTesterOpen] = useState(false);
+  const [testerCodeInput, setTesterCodeInput] = useState("");
+  const [testerEmail, setTesterEmail] = useState<string>(() => emailInSession() ?? "");
+  const [testerCodeValid, setTesterCodeValid] = useState(false);
+  const [testerState, setTesterState] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const [testerError, setTesterError] = useState<string | null>(null);
+  const [testerBusy, setTesterBusy] = useState(false);
+
+  // Case-insensitive + trimmed — must match unlockWithTesterCode exactly.
+  const isCodeValid = (v: string) =>
+    !!testerCode && v.trim().toLowerCase() === testerCode.trim().toLowerCase();
+
+  const onTesterUnlock = async () => {
+    setTesterError(null);
+    const code = testerCodeInput.trim();
+    if (!code || !isCodeValid(code)) {
+      setTesterError(
+        "That code isn’t recognized. Double-check it — or use Get FED to unlock anytime.",
+      );
+      return;
+    }
+    // Email is optional-ish: fall back to the capture-gate email if the field
+    // is blank so we can still set up their account.
+    const sessionEmail = emailInSession();
+    const tEmail =
+      testerEmail.trim().toLowerCase() || (sessionEmail ?? "").toLowerCase();
+    if (!tEmail || !/^\S+@\S+\.\S+$/.test(tEmail)) {
+      setTesterError("Enter an email so we can set up your tester account.");
+      return;
+    }
+    setTesterBusy(true);
+    setTesterState("busy");
+    try {
+      const res = await unlockWithTesterCode({ data: { code, email: tEmail } });
+      try {
+        sessionStorage.setItem(EMAIL_KEY, res.email);
+        sessionStorage.setItem(USER_ID_KEY, String(res.userId));
+      } catch {
+        /* storage unavailable — ignore */
+      }
+      setTesterState("done");
+      // Route straight into the now-unlocked app (same journey as a payer).
+      navigate({ to: "/app" });
+    } catch (e) {
+      setTesterError(
+        e instanceof Error
+          ? e.message
+          : "We couldn’t apply your code just now. Please try again.",
+      );
+      setTesterState("error");
+    } finally {
+      setTesterBusy(false);
+    }
+  };
 
   // The funnel gate: don't reveal the score to someone who hasn't given us an
   // email this session. Initialised synchronously (so no gate-flash on a
@@ -124,6 +187,7 @@ function ResultPage() {
           setProfile(r.profile);
           setPaywallUrl(r.paywallUrl);
           setPriceLabel(r.priceLabel);
+          setTesterCode(r.testerCode ?? "");
         }
       })
       .catch(() => {});
@@ -312,6 +376,8 @@ function ResultPage() {
                 Fasting timer, daily move &amp; plate, and a simple energy tracker —
                 in the plan that finally fits you.
               </p>
+
+              {/* Primary path — real $19 Stripe founding checkout. */}
               <a
                 href={paywallUrl || "#"}
                 onClick={(e) => {
@@ -324,6 +390,71 @@ function ResultPage() {
               <p className="mt-4 text-xs text-muted">
                 Cancel anytime. Founding members lock today’s rate for life.
               </p>
+
+              {/* Discreet discount-code path for testers — turns the $19 into $0. */}
+              {!testerOpen ? (
+                <button
+                  onClick={() => setTesterOpen(true)}
+                  className="mt-4 text-sm font-medium text-peach underline decoration-dotted underline-offset-4 transition hover:text-warm"
+                >
+                  Have a code?
+                </button>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-line bg-paper-deep/50 p-4 text-left">
+                  <p className="text-sm font-semibold text-ink">
+                    Got a founding code? Apply it here.
+                  </p>
+                  <p className="mt-1 text-xs text-ink-soft">
+                    Enter your code and your unlock becomes free — no charge, which is
+                    how this happens to all the first ones through.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-3">
+                    <input
+                      type="text"
+                      value={testerCodeInput}
+                      onChange={(e) => {
+                        setTesterCodeInput(e.target.value);
+                        setTesterCodeValid(isCodeValid(e.target.value));
+                        if (testerError) setTesterError(null);
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && onTesterUnlock()}
+                      placeholder="Your code"
+                      disabled={testerState === "busy" || testerState === "done"}
+                      className="rounded-full border border-line bg-paper px-5 py-3 text-ink placeholder-muted outline-none focus:border-peach disabled:opacity-60"
+                    />
+                    <input
+                      type="email"
+                      value={testerEmail}
+                      onChange={(e) => setTesterEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && onTesterUnlock()}
+                      placeholder="you@example.com"
+                      disabled={testerState === "busy" || testerState === "done"}
+                      className="rounded-full border border-line bg-paper px-5 py-3 text-ink placeholder-muted outline-none focus:border-peach disabled:opacity-60"
+                    />
+                    {testerCodeValid && (
+                      <p className="text-sm font-medium text-ink">
+                        Code accepted — your price is now{" "}
+                        <span className="font-bold text-warm">$0</span>.
+                      </p>
+                    )}
+                    {testerError && <p className="text-sm text-terracotta">{testerError}</p>}
+                    <button
+                      onClick={onTesterUnlock}
+                      disabled={testerBusy || testerState === "done"}
+                      className={testerCodeValid ? "btn-primary w-full" : "btn-secondary w-full"}
+                    >
+                      {testerState === "busy"
+                        ? "Unlocking…"
+                        : testerCodeValid
+                          ? "Get FED — $0 · founding tester"
+                          : "Apply code"}
+                    </button>
+                    {testerState === "done" && (
+                      <p className="text-sm text-ink">You’re in — opening your plan…</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
 
             <div className="mt-8 flex justify-center">

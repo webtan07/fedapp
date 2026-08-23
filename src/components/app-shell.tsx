@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { SunBadge } from "./brand";
 import { DisclaimerNote, LegalFooter } from "./footer";
 import { STRIPE_PAYWALL_URL } from "~/site";
-import { unlockWithEmail, unlockWithTesterCode } from "~/routes/api/app";
+import { unlockWithEmail } from "~/routes/api/app";
 
 const PAGES = [
   { href: "/app", label: "My Plan" },
@@ -59,22 +59,19 @@ export function AppShell({
  * Content shown inside the shell when the user has no active plan_access row.
  * Rendered by the four app screens when `plan` is false.
  *
- * Three paths out of the lock screen:
+ * Two paths out of the lock screen:
  *  1. "Get FED" — opens the real $19 Stripe founding checkout (STRIPE_PAYWALL_URL).
- *  2. Tester code — a shared code (env TESTER_CODE, default FEDTEST) unlocks the
- *     app for free (unlockWithTesterCode), no Stripe required.
- *  3. Returning paid buyer — enters the email they paid with and the server
+ *  2. Returning paid buyer — enters the email they paid with and the server
  *     grants plan_access (unlockWithEmail).
+ *
+ * NOTE (tester access): the shared tester code now lives on the /result paywall
+ * ("Have a code?" → $0 unlock) so testers go through the real quiz → result →
+ * Get FED funnel. The /app lock screen no longer offers the free-code card.
  */
 export function Locked({ title, blurb }: { title: string; blurb?: string }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-
-  const [testerCode, setTesterCode] = useState("");
-  const [testerEmail, setTesterEmail] = useState("");
-  const [testerState, setTesterState] = useState<"idle" | "busy" | "done" | "error">("idle");
-  const [testerError, setTesterError] = useState<string | null>(null);
 
   // Shared: persist the granted user + reload so the shell sees the new plan.
   const persistAndUnlock = (userId: number, grantedEmail: string) => {
@@ -105,29 +102,6 @@ export function Locked({ title, blurb }: { title: string; blurb?: string }) {
     }
   };
 
-  const onTesterUnlock = async () => {
-    const code = testerCode.trim();
-    const tEmail = testerEmail.trim().toLowerCase();
-    if (!code) {
-      setTesterError("Enter your tester code to unlock FED for free.");
-      return;
-    }
-    if (!tEmail || !/^\S+@\S+\.\S+$/.test(tEmail)) {
-      setTesterError("Enter an email so we can set up your tester account.");
-      return;
-    }
-    setTesterState("busy");
-    setTesterError(null);
-    try {
-      const res = await unlockWithTesterCode({ data: { code, email: tEmail } });
-      setTesterState("done");
-      persistAndUnlock(res.userId, res.email);
-    } catch (e) {
-      setTesterError(e instanceof Error ? e.message : "We couldn't unlock your tester access just now. Please try again.");
-      setTesterState("error");
-    }
-  };
-
   return (
     <div className="mx-auto max-w-md text-center">
       <div className="mx-auto mb-6 w-fit">
@@ -151,51 +125,6 @@ export function Locked({ title, blurb }: { title: string; blurb?: string }) {
           Get FED — $19 founding · one-time
         </a>
         <p className="mt-2 text-xs text-muted">Founding members lock today’s rate for life.</p>
-      </div>
-
-      {/* Shared tester code → free unlock, no Stripe. */}
-      <div className="card mt-8 text-left">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted">Have a tester code?</p>
-        <p className="mt-1 text-sm text-ink-soft">
-          Invited to try FED free? Enter your code and an email to unlock the app.
-        </p>
-        <div className="mt-3 flex flex-col gap-3">
-          <input
-            type="text"
-            value={testerCode}
-            onChange={(e) => {
-              setTesterCode(e.target.value);
-              if (testerError) setTesterError(null);
-            }}
-            onKeyDown={(e) => e.key === "Enter" && onTesterUnlock()}
-            placeholder="Tester code"
-            disabled={testerState === "busy" || testerState === "done"}
-            className="rounded-full border border-line bg-paper px-5 py-3 text-ink placeholder-muted outline-none focus:border-peach disabled:opacity-60"
-          />
-          <input
-            type="email"
-            value={testerEmail}
-            onChange={(e) => {
-              setTesterEmail(e.target.value);
-              if (testerError) setTesterError(null);
-            }}
-            onKeyDown={(e) => e.key === "Enter" && onTesterUnlock()}
-            placeholder="you@example.com"
-            disabled={testerState === "busy" || testerState === "done"}
-            className="rounded-full border border-line bg-paper px-5 py-3 text-ink placeholder-muted outline-none focus:border-peach disabled:opacity-60"
-          />
-          <button
-            onClick={onTesterUnlock}
-            disabled={testerState === "busy" || testerState === "done"}
-            className="btn-secondary w-full"
-          >
-            {testerState === "busy" ? "Unlocking…" : "Unlock free with tester code"}
-          </button>
-          {testerState === "done" && (
-            <p className="text-sm text-ink">You’re in — reloading your plan…</p>
-          )}
-          {testerError && <p className="text-sm text-terracotta">{testerError}</p>}
-        </div>
       </div>
 
       {/* Returning-buyer email handoff → grants plan_access. */}
