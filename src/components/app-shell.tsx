@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { SunBadge } from "./brand";
 import { DisclaimerNote, LegalFooter } from "./footer";
 import { STRIPE_PAYWALL_URL } from "~/site";
-import { unlockWithEmail } from "~/routes/api/app";
+import { getTesterStatus, unlockWithEmail } from "~/routes/api/app";
 
 const PAGES = [
   { href: "/app", label: "My Plan" },
@@ -22,6 +22,27 @@ export function AppShell({
   active?: string;
   children: ReactNode;
 }) {
+  // Tester-only nav item: resolve whether the current user unlocked as a TESTER
+  // (plan_access.plan='tester'). Paying members are never testers, so they never
+  // see the "Feedback" item. Hidden entirely until we know it's a tester.
+  const [isTester, setIsTester] = useState<boolean | null>(null);
+  useEffect(() => {
+    let uid: number | null = null;
+    try {
+      const v = sessionStorage.getItem("fed_userId");
+      uid = v ? Number(v) : null;
+    } catch {
+      /* storage unavailable */
+    }
+    if (!uid) {
+      setIsTester(false);
+      return;
+    }
+    getTesterStatus({ data: uid })
+      .then((r) => setIsTester(r.isTester))
+      .catch(() => setIsTester(false));
+  }, []);
+
   return (
     <div className="min-h-dvh bg-cream">
       <header className="sticky top-0 z-10 border-b border-line bg-cream/95 backdrop-blur">
@@ -45,6 +66,19 @@ export function AppShell({
                 {p.label}
               </Link>
             ))}
+            {isTester && (
+              <Link
+                to="/app/feedback"
+                className={
+                  "rounded-full px-3 py-1.5 transition " +
+                  (active === "Feedback"
+                    ? "bg-gradient-to-r from-peach to-amber font-semibold text-white shadow-glow"
+                    : "text-ink-soft hover:bg-paper-deep")
+                }
+              >
+                Feedback
+              </Link>
+            )}
           </nav>
         </div>
       </header>

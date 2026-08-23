@@ -4,10 +4,15 @@ import {
   endOpenFast,
   ensureSchema,
   getCheckin,
+  getLatestQuizAttempt,
   getOrCreateUser,
+  getProfileBySlug,
+  getUserById,
   grantPlanAccess,
   grantTesterAccess,
   hasActivePlan,
+  insertFeedback,
+  isTester,
   listCheckins,
   listFasts,
   listMoves,
@@ -404,4 +409,113 @@ export const saveTracker = createServerFn()
       waist: data.waist,
     });
     return { ok: true };
+  });
+
+// ── Tester-only feedback ─────────────────────────────────────────────────
+export interface TesterStatus {
+  isTester: boolean;
+}
+/**
+ * Lightweight tester check used by the app shell to decide whether to show the
+ * "Send feedback" nav item. TESTER-ONLY: only a user who unlocked via the
+ * shared tester code (plan_access.plan='tester') is a tester — paying buyers
+ * (plan_access.plan='paid' / users.plan='paid') are NOT and never see this.
+ */
+export const getTesterStatus = createServerFn()
+  .validator((v: unknown) => ensureUserId(v))
+  .handler(async ({ data: userId }): Promise<TesterStatus> => {
+    requireEnv("databaseUrl");
+    await ensureSchema();
+    return { isTester: await isTester(userId) };
+  });
+
+export interface FeedbackContext {
+  isTester: boolean;
+  /** Submitter's email (auto-tagged, shown back so the tester knows it's stored). */
+  email: string | null;
+  /** Latest FED profile + score context, auto-tagged (null if no quiz attempt). */
+  profile: { slug: string; name: string; fedScore: number; intensity: string } | null;
+}
+/**
+ * Context for the feedback page. Enforces the tester gate: the page body
+ * (fields) is only meaningful when isTester is true. The submit handler
+ * re-checks isTester server-side, so a non-tester can't submit even by crafting
+ * a request directly.
+ */
+export const getFeedbackContext = createServerFn()
+  .validator((v: unknown) => ensureUserId(v))
+  .handler(async ({ data: userId }): Promise<FeedbackContext> => {
+    requireEnv("databaseUrl");
+    await ensureSchema();
+    const isT = await isTester(userId);
+    if (!isT) return { isTester: false, email: null, profile: null };
+    const user = await getUserById(userId);
+    const attempt = await getLatestQuizAttempt(userId);
+    let profile: FeedbackContext["profile"] = null;
+    if (attempt) {
+      const p = await getProfileBySlug(attempt.profile);
+      profile = {
+        slug: attempt.profile,
+        name: p?.name ?? attempt.profile,
+        fedScore: attempt.fedScore,
+        intensity: attempt.intensity,
+      };
+    }
+    return { isTester: true, email: user?.email ?? null, profile };
+  });
+
+export interface SubmitFeedbackInput {
+  userId: number;
+  /** "What worked?" free text. */
+  whatWorked: string;
+  /** "What didn't / what would you change?" free text. */
+  whatToChange: string;
+  /** Optional overall rating 1-5 (low-pressure, can be null). */
+  rating: number | null;
+}
+export const submitFeedback = createServerFn()
+  .validator((d: SubmitFeedbackInput) => {
+    if (!d || typeof d !== "object") throw new Error("Missing feedback payload.");
+    const uid = typeof d.userId === "number" ? d.userId : Number(d.userId);
+    if (!Number.isFinite(uid) || uid <= 0) throw new Error("A valid user id is required.");
+    const whatWorked = typeof d.whatWorked === "string" ? d.whatWorked.trim().slice(0, 5000) : "";
+    const whatToChange = typeof d.whatToChange === "string" ? d.whatToChange.trim().slice(0, 5000) : "";
+    if (whatWorked === "" && whatToChange === "") {
+      throw new Error("Share a little — a line or two is plenty. We read every one.");
+    }
+    let rating: number | null = null;
+    if (d.rating !== null && d.rating !== undefined && d.rating !== 0) {
+      const n = typeof d.rating === "number" ? d.rating : Number(d.rating);
+      if (Number.isFinite(n) && n >= 1) rating = Math.min(5, Math.max(1, Math.round(n)));
+    }
+    return { userId: uid, whatWorked, whatToChange, rating };
+  })
+  .handler(async ({ data }) => {
+    requireEnv("databaseUrl");
+    await ensureSchema();
+    // STRICT gate: only testers can submit. Paying members get a clear no.
+    if (!(await isTester(data.userId))) {
+      throw new Error("Feedback is for our tester crew only. Thanks for understanding!");
+    }
+    const user = await getUserById(data.userId);
+    if (!user) throw new Error("We couldn’t find your account — try re-unlocking with your code.");
+    // Auto-tag with the tester's FED profile + score (server-fetched, not client).
+    const attempt = await getLatestQuizAttempt(data.userId);
+    let profileName: string | null = null;
+    if (attempt) {
+      const p = await getProfileBySlug(attempt.profile);
+      profileName = p?.name ?? null;
+    }
+    await insertFeedback({
+      userId: data.userId,
+      email: user.email,
+      whatWorked: data.whatWorked,
+      whatToChange: data.whatToChange,
+      rating: data.rating,
+      profile: attempt?.profile ?? null,
+      profileName,
+      fedScore: attempt?.fedScore ?? null,
+      intensity: attempt?.intensity ?? null,
+    });
+    return { success: true as const };
   });

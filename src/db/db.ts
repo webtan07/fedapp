@@ -221,6 +221,72 @@ export async function grantTesterAccess(userId: number): Promise<void> {
   `;
 }
 
+/** One user row by id (email needed for feedback auto-tagging). */
+export async function getUserById(
+  userId: number,
+): Promise<{ id: number; email: string } | null> {
+  const rows = await sql()`SELECT id, email FROM fed.users WHERE id = ${userId} LIMIT 1`;
+  return rows.length ? (rows[0] as { id: number; email: string }) : null;
+}
+
+/**
+ * True when the user unlocked FED as a TESTER (via the shared free tester
+ * code—grantTesterAccess tags its plan_access row with plan='tester'). This is
+ * what separates testers from paying buyers: buyers get plan_access.plan='paid'
+ * (grantPlanAccess) or users.plan='paid'; testers get plan_access.plan='tester'
+ * with users.plan left 'free'. The tester-only feedback page gates on this.
+ */
+export async function isTester(userId: number): Promise<boolean> {
+  const rows = await sql()`
+    SELECT EXISTS (
+      SELECT 1 FROM fed.plan_access
+      WHERE user_id = ${userId} AND plan = 'tester' AND access_level = 'plan'
+        AND (expires_at IS NULL OR expires_at > now())
+    ) AS "is"
+  `;
+  return rows.length ? Boolean(rows[0].is) : false;
+}
+
+/** Latest quiz attempt summary for a user (for feedback auto-tagging). */
+export interface QuizAttemptSummary {
+  profile: string;
+  fedScore: number;
+  intensity: string;
+}
+export async function getLatestQuizAttempt(
+  userId: number,
+): Promise<QuizAttemptSummary | null> {
+  const rows = await sql()`
+    SELECT profile, fed_score AS "fedScore", intensity
+    FROM fed.quiz_attempts WHERE user_id = ${userId}
+    ORDER BY id DESC LIMIT 1
+  `;
+  return rows.length ? (rows[0] as QuizAttemptSummary) : null;
+}
+
+/** Insert one tester feedback submission, auto-tagged with profile context. */
+export interface FeedbackInsert {
+  userId: number;
+  email: string;
+  whatWorked: string;
+  whatToChange: string;
+  rating: number | null;
+  profile: string | null;
+  profileName: string | null;
+  fedScore: number | null;
+  intensity: string | null;
+}
+export async function insertFeedback(f: FeedbackInsert): Promise<void> {
+  await sql()`
+    INSERT INTO fed.feedback_submissions
+      (user_id, email, what_worked, what_to_change, rating,
+       profile, profile_name, fed_score, intensity)
+    VALUES
+      (${f.userId}, ${f.email}, ${f.whatWorked}, ${f.whatToChange}, ${f.rating},
+       ${f.profile ?? null}, ${f.profileName ?? null}, ${f.fedScore ?? null}, ${f.intensity ?? null})
+  `;
+}
+
 // ── Fasting sessions (server timestamps = source of truth) ─────────────────
 /** Begin a fast. Postgres `now()` sets the server timestamp so streaks survive
  *  client refreshes / timezones (we never trust a client clock for timing). */
