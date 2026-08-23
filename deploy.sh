@@ -42,9 +42,23 @@ SCOPE_ARGS=()
 if [ -n "$SCOPE" ]; then SCOPE_ARGS=(--scope "$SCOPE"); fi
 
 echo "==> deploying (scope: ${SCOPE:-<personal>})"
-DEPLOY_OUT="$($VERCEL deploy --prebuilt --yes --name "$PROJECT_NAME" "${SCOPE_ARGS[@]}" \
+# Production public URL for the emailed result link (local .env carries the
+# http://localhost:3101 dev value — not usable in production emails).
+: "${APP_BASE_URL:?APP_BASE_URL must be the production public URL for deploy}"
+if [[ "$APP_BASE_URL" == *"localhost"* ]]; then
+  APP_BASE_URL="https://fedapp-sepia.vercel.app"
+fi
+DEPLOY_OUT="$($VERCEL deploy --prebuilt --prod --yes --name "$PROJECT_NAME" "${SCOPE_ARGS[@]}" \
   -e DATABASE_URL="$DATABASE_URL" \
-  -e PAYWALL_URL="$PAYWALL_URL" 2>&1)" || {
+  -e PAYWALL_URL="$PAYWALL_URL" \
+  -e PORT="$PORT" \
+  -e APP_BASE_URL="$APP_BASE_URL" \
+  -e TESTER_CODE="$TESTER_CODE" \
+  -e EMAIL_USER="$EMAIL_USER" \
+  -e EMAIL_APP_PASSWORD="$EMAIL_APP_PASSWORD" \
+  -e SMTP_HOST="$SMTP_HOST" \
+  -e SMTP_PORT="$SMTP_PORT" \
+  -e SMTP_SECURE="$SMTP_SECURE" 2>&1)" || {
   printf '%s\n' "$DEPLOY_OUT" >&2
   exit 1
 }
