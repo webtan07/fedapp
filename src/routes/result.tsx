@@ -125,10 +125,14 @@ function ResultPage() {
   const onTesterUnlock = async () => {
     setTesterError(null);
     const code = testerCodeInput.trim();
-    if (!code || !isCodeValid(code)) {
-      setTesterError(
-        "That code isn’t recognized. Double-check it — or use Get FED to unlock anytime.",
-      );
+    // Only block on a truly empty field (helpful prompt). Anything non-empty is
+    // handed to the SERVER for validation — the server is the source of truth
+    // (config.testerCode from the env) and produces the accurate error message.
+    // This is the fix for the correct code (FEDTEST) being rejected on the
+    // client: previously this returned early when `testerCode` state was empty
+    // (e.g. getProfileData had failed/slow), so the code never reached the server.
+    if (!code) {
+      setTesterError("Enter your tester code to unlock FED for free.");
       return;
     }
     // Email is optional-ish: fall back to the capture-gate email if the field
@@ -177,20 +181,39 @@ function ResultPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [paywallUrl, setPaywallUrl] = useState("");
   const [priceLabel, setPriceLabel] = useState("");
+  // Tracks a transient profile-load failure so we can retry (and surface a
+  // gentle notice if it ultimately fails). Harden only — validation of the
+  // tester code no longer depends on this load succeeding (server-authoritative).
+  const [profileError, setProfileError] = useState(false);
+  const profileRetryRef = useRef(0);
 
   useEffect(() => {
     if (!search.profile) return;
     let active = true;
-    getProfileData({ data: search.profile })
-      .then((r) => {
-        if (active) {
+    const load = () => {
+      getProfileData({ data: search.profile })
+        .then((r) => {
+          if (!active) return;
           setProfile(r.profile);
           setPaywallUrl(r.paywallUrl);
           setPriceLabel(r.priceLabel);
           setTesterCode(r.testerCode ?? "");
-        }
-      })
-      .catch(() => {});
+          setProfileError(false);
+          profileRetryRef.current = 0;
+        })
+        .catch(() => {
+          if (!active) return;
+          // One automatic retry for transient failures (DB warm-up / cold call),
+          // then surface a gentle notice instead of silently leaving state empty.
+          if (profileRetryRef.current < 1) {
+            profileRetryRef.current += 1;
+            load();
+          } else {
+            setProfileError(true);
+          }
+        });
+    };
+    load();
     return () => {
       active = false;
     };
@@ -390,6 +413,14 @@ function ResultPage() {
               <p className="mt-4 text-xs text-muted">
                 Cancel anytime. Founding members lock today’s rate for life.
               </p>
+
+              {/* Gentle notice if the profile copy couldn't load — the plan CTA
+                  and tester-code unlock still work (server-authoritative). */}
+              {profileError && (
+                <p className="mt-4 text-xs text-muted">
+                  Some details couldn’t load just now — your plan and code still work.
+                </p>
+              )}
 
               {/* Discreet discount-code path for testers — turns the $19 into $0. */}
               {!testerOpen ? (
