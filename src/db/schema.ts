@@ -98,6 +98,34 @@ export interface PlanAccess {
   expiresAt: Date | string | null;
 }
 
+/**
+ * A tester-submitted feedback note on their FED experience. TESTER-ONLY — only
+ * a user who unlocked via the shared tester code (plan_access.plan='tester') can
+ * submit. Auto-tagged server-side with the submitter's email, FED profile slug +
+ * display name, FED score and intensity (from their latest quiz attempt) so the
+ * owner can read feedback in context of who sent it.
+ */
+export interface FeedbackSubmission {
+  id: number;
+  userId: number;
+  email: string;
+  /** "What worked?" — free text (can be empty if the other is filled). */
+  whatWorked: string;
+  /** "What didn't / what would you change?" — free text. */
+  whatToChange: string;
+  /** Optional low-pressure overall rating (1-5). Null when not given. */
+  rating: number | null;
+  /** FED profile slug (e.g. "wired-and-tired"), auto-tagged. */
+  profile: string | null;
+  /** Human profile display name, auto-tagged. */
+  profileName: string | null;
+  /** FED score (0-24), auto-tagged. */
+  fedScore: number | null;
+  /** Intensity tier (low/mid/high), auto-tagged. */
+  intensity: Intensity | null;
+  createdAt: Date | string;
+}
+
 // ── Canonical DDL ─────────────────────────────────────────────────────────
 const SCHEMA = "fed";
 
@@ -200,6 +228,24 @@ export const CREATE_TABLES: string[] = [
     granted_at          timestamptz NOT NULL DEFAULT now(),
     expires_at          timestamptz,
     CONSTRAINT plan_access_user_plan_key UNIQUE (user_id, plan)
+  )`,
+
+  // Tester-only feedback submissions. New table (not a migration) so a
+  // first-run database self-heals into it; databases created by older DDL pick
+  // it up on the next ensureSchema() because CREATE_TABLE IF NOT EXISTS runs
+  // every time. Auto-tagged columns hold the submitter's FED profile context.
+  `CREATE TABLE IF NOT EXISTS ${SCHEMA}.feedback_submissions (
+    id            serial PRIMARY KEY,
+    user_id       int NOT NULL REFERENCES ${SCHEMA}.users(id) ON DELETE CASCADE,
+    email         text NOT NULL,
+    what_worked   text NOT NULL DEFAULT '',
+    what_to_change text NOT NULL DEFAULT '',
+    rating        int CHECK (rating BETWEEN 1 AND 5),
+    profile       text,
+    profile_name  text,
+    fed_score     int,
+    intensity     text CHECK (intensity IN ('low', 'mid', 'high')),
+    created_at    timestamptz NOT NULL DEFAULT now()
   )`,
 ];
 
