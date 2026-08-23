@@ -51,6 +51,13 @@ export interface ProfileDataResult {
   paywallUrl: string;
   /** Founding price framing shown on the paywall CTA. */
   priceLabel: string;
+  /**
+   * The current shared tester code (env TESTER_CODE, default FEDTEST), so the
+   * result page can validate a code live and flip the paywall price to $0.
+   * Not a secret — it is an openly-shared invitation code. Compared
+   * case-insensitively/trimmed, same as the server (unlockWithTesterCode).
+   */
+  testerCode: string;
 }
 
 /** Load the profile row (copy + metadata) by its slug for the result reveal. */
@@ -65,6 +72,8 @@ export const getProfileData = createServerFn()
       paywallUrl: config.paywallUrl,
       // Founding membership is a one-time $19 offer (owner-chosen model).
       priceLabel: "$19 founding · one-time",
+      // Shared tester code (env TESTER_CODE, default FEDTEST) for live validation.
+      testerCode: config.testerCode,
     };
   });
 
