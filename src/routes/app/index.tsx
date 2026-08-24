@@ -1,3 +1,4 @@
+import { getUserId } from "~/lib/session";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell, Locked } from "~/components/app-shell";
@@ -10,9 +11,7 @@ export const Route = createFileRoute("/app/")({
 });
 
 function userId(): number | null {
-  if (typeof window === "undefined") return null;
-  const v = sessionStorage.getItem("fed_userId");
-  return v ? Number(v) : null;
+  return getUserId();
 }
 
 function AppHome() {

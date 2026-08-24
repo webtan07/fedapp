@@ -4,10 +4,12 @@ import {
   ensureSchema,
   getOrCreateUser,
   getProfileBySlug,
+  getResumeAttempt,
+  hasActivePlan,
   markFunnelStep,
   trackFunnelEvent,
 } from "~/db/db";
-import type { Profile } from "~/db/schema";
+import type { Intensity, Profile } from "~/db/schema";
 
 /**
  * Server functions backing the /result sales page.
@@ -99,4 +101,61 @@ export const markRevealed = createServerFn()
       }
     }
     return { success: true };
+  });
+
+export interface ResolveResumeResult {
+  success: boolean;
+  /** Verified owner of the token's attempt. Null when the token is unknown. */
+  userId: number | null;
+  /** The user's quiz email (so the client can persist identity). */
+  email: string | null;
+  /** Whether that user holds an active plan (routes them to /app vs /result). */
+  hasPlan: boolean;
+  /** The attempt's reveal data (renders the result without a re-quiz). */
+  attempt: {
+    profileSlug: string;
+    total: number;
+    intensity: Intensity;
+    fp: number;
+    ep: number;
+    dp: number;
+  } | null;
+}
+/**
+ * Resolve an emailed resume token → the attempt's owner + reveal data, so
+ * clicking "See your FED plan" takes a returning user straight to their result
+ * (or, if they already hold an active plan, to /app) without a re-quiz.
+ *
+ * SECURITY: the token is a unique 256-bit value minted at quiz-submit time and
+ * stored on the quiz_attempts row. The lookup joins attempt→user and returns
+ * only that single attempt's own data, so a valid token can never expose
+ * another user's data. Invalid/unknown tokens simply resolve to success:false.
+ */
+export const resolveResume = createServerFn()
+  .validator((t: unknown) => (typeof t === "string" ? t.trim() : ""))
+  .handler(async ({ data }): Promise<ResolveResumeResult> => {
+    requireEnv("databaseUrl");
+    await ensureSchema();
+    if (!data) {
+      return { success: false, userId: null, email: null, hasPlan: false, attempt: null };
+    }
+    const attempt = await getResumeAttempt(data);
+    if (!attempt) {
+      return { success: false, userId: null, email: null, hasPlan: false, attempt: null };
+    }
+    const hasPlan = await hasActivePlan(attempt.userId);
+    return {
+      success: true,
+      userId: attempt.userId,
+      email: attempt.email,
+      hasPlan,
+      attempt: {
+        profileSlug: attempt.profileSlug,
+        total: attempt.total,
+        intensity: attempt.intensity as Intensity,
+        fp: attempt.fp,
+        ep: attempt.ep,
+        dp: attempt.dp,
+      },
+    };
   });

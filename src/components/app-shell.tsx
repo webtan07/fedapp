@@ -6,6 +6,7 @@ import { DisclaimerNote, LegalFooter } from "./footer";
 import { STRIPE_PAYWALL_URL } from "~/site";
 import { getTesterStatus, unlockWithEmail } from "~/routes/api/app";
 import { fireFunnelEvent } from "~/lib/funnel";
+import { getUserId, setEmail as setSessionEmail, setUserId as setSessionUserId } from "~/lib/session";
 
 const PAGES = [
   { href: "/app", label: "My Plan" },
@@ -28,13 +29,7 @@ export function AppShell({
   // see the "Feedback" item. Hidden entirely until we know it's a tester.
   const [isTester, setIsTester] = useState<boolean | null>(null);
   useEffect(() => {
-    let uid: number | null = null;
-    try {
-      const v = sessionStorage.getItem("fed_userId");
-      uid = v ? Number(v) : null;
-    } catch {
-      /* storage unavailable */
-    }
+    const uid = getUserId();
     if (!uid) {
       setIsTester(false);
       return;
@@ -110,12 +105,8 @@ export function Locked({ title, blurb }: { title: string; blurb?: string }) {
 
   // Shared: persist the granted user + reload so the shell sees the new plan.
   const persistAndUnlock = (userId: number, grantedEmail: string) => {
-    try {
-      sessionStorage.setItem("fed_email", grantedEmail);
-      sessionStorage.setItem("fed_userId", String(userId));
-    } catch {
-      /* storage unavailable — ignore */
-    }
+    setSessionEmail(grantedEmail);
+    setSessionUserId(userId);
     setTimeout(() => window.location.reload(), 500);
   };
 
@@ -157,14 +148,7 @@ export function Locked({ title, blurb }: { title: string; blurb?: string }) {
           rel="noopener noreferrer"
           onClick={() => {
             // Checkout-click analytics (fire-and-forget, never blocks).
-            let uid: number | undefined;
-            try {
-              const v = sessionStorage.getItem("fed_userId");
-              if (v) uid = Number(v);
-            } catch {
-              /* storage unavailable — ignore */
-            }
-            fireFunnelEvent("checkout_clicked", uid, "app-lock");
+            fireFunnelEvent("checkout_clicked", getUserId() ?? undefined, "app-lock");
           }}
           className="btn-primary w-full"
         >

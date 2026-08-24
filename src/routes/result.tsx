@@ -5,9 +5,11 @@ import {
   captureEmail,
   getProfileData,
   markRevealed,
+  resolveResume,
 } from "~/routes/api/result";
 import { unlockWithTesterCode } from "~/routes/api/app";
 import { fireFunnelEvent } from "~/lib/funnel";
+import { getEmail, getUserId, setEmail as setSessionEmail, setUserId } from "~/lib/session";
 import { DynamicShareCard } from "~/components/share-card";
 import { toPng } from "html-to-image";
 import { FEDWordmark } from "~/components/brand";
@@ -32,14 +34,15 @@ export const Route = createFileRoute("/result")({
       fp: num(search.fp),
       ep: num(search.ep),
       dp: num(search.dp),
+      // Email-link resume token — see the resume effect in ResultPage.
+      t: typeof search.t === "string" ? search.t : undefined,
     };
   },
   component: ResultPage,
 });
 
-// ── Session keys for "did this session already give us their email?" ──────
-const EMAIL_KEY = "fed_email";
-const USER_ID_KEY = "fed_userId";
+// ── "Did this user already give us their email?" — persisted via src/lib/session
+// (localStorage-backed so identity survives across tabs/sessions on iOS Safari).
 
 const PILLARS: { key: "fp" | "ep" | "dp"; label: string; sub: string; pillar: Pillar }[] = [
   { key: "fp", label: "Fasting", sub: "F", pillar: "fasting" },
@@ -80,30 +83,66 @@ const TEASERS: Record<string, Teaser[]> = {
   ],
 };
 
-function emailInSession(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return sessionStorage.getItem(EMAIL_KEY);
-  } catch {
-    return null;
-  }
-}
-function userIdInSession(): number | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const v = sessionStorage.getItem(USER_ID_KEY);
-    return v ? Number(v) : null;
-  } catch {
-    return null;
-  }
-}
-
 function ResultPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const hasResult = search.total !== undefined && search.profile !== undefined;
   const cardRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
+
+  // Email-link resume: while a `?t=` token is being resolved server-side we show
+  // a brief "resuming" state instead of flashing an empty/NoResult page.
+  const [resuming, setResuming] = useState(false);
+
+  // Resolve an emailed resume token (`/result?t=<token>` from the "See your FED
+  // plan" email). On success we persist the user's identity (localStorage) and
+  // route them to their result or — if they already hold a plan — straight into
+  // /app, all WITHOUT a re-quiz. Non-plan resumed users land on /result with the
+  // attempt's own reveal data in the URL.
+  useEffect(() => {
+    if (!search.t) return;
+    let active = true;
+    setResuming(true);
+    resolveResume({ data: search.t })
+      .then((r) => {
+        if (!active) return;
+        if (r.success && r.userId) {
+          setUserId(r.userId);
+          if (r.email) setSessionEmail(r.email);
+          if (r.hasPlan) {
+            navigate({ to: "/app", replace: true });
+            return;
+          }
+          if (r.attempt) {
+            navigate({
+              to: "/result",
+              search: {
+                profile: r.attempt.profileSlug,
+                total: r.attempt.total,
+                intensity: r.attempt.intensity,
+                fp: r.attempt.fp,
+                ep: r.attempt.ep,
+                dp: r.attempt.dp,
+                t: undefined,
+              },
+              replace: true,
+            });
+            return;
+          }
+        }
+        // Unknown/invalid token — drop the param and send them to take the quiz.
+        navigate({ to: "/quiz", replace: true });
+      })
+      .catch(() => {
+        if (active) navigate({ to: "/quiz", replace: true });
+      })
+      .finally(() => {
+        if (active) setResuming(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [search.t, navigate]);
 
   // Discount-code (tester) flow on the paywall. The shared code is loaded from
   // the server with the rest of the profile config; a valid code flips the CTA
@@ -113,7 +152,7 @@ function ResultPage() {
   const [testerCode, setTesterCode] = useState("");
   const [testerOpen, setTesterOpen] = useState(false);
   const [testerCodeInput, setTesterCodeInput] = useState("");
-  const [testerEmail, setTesterEmail] = useState<string>(() => emailInSession() ?? "");
+  const [testerEmail, setTesterEmail] = useState<string>(() => getEmail() ?? "");
   const [testerCodeValid, setTesterCodeValid] = useState(false);
   const [testerState, setTesterState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [testerError, setTesterError] = useState<string | null>(null);
@@ -138,7 +177,7 @@ function ResultPage() {
     }
     // Email is optional-ish: fall back to the capture-gate email if the field
     // is blank so we can still set up their account.
-    const sessionEmail = emailInSession();
+    const sessionEmail = getEmail();
     const tEmail =
       testerEmail.trim().toLowerCase() || (sessionEmail ?? "").toLowerCase();
     if (!tEmail || !/^\S+@\S+\.\S+$/.test(tEmail)) {
@@ -149,12 +188,8 @@ function ResultPage() {
     setTesterState("busy");
     try {
       const res = await unlockWithTesterCode({ data: { code, email: tEmail } });
-      try {
-        sessionStorage.setItem(EMAIL_KEY, res.email);
-        sessionStorage.setItem(USER_ID_KEY, String(res.userId));
-      } catch {
-        /* storage unavailable — ignore */
-      }
+      setSessionEmail(res.email);
+      setUserId(res.userId);
       setTesterState("done");
       // Route straight into the now-unlocked app (same journey as a payer).
       navigate({ to: "/app" });
@@ -173,7 +208,7 @@ function ResultPage() {
   // The funnel gate: don't reveal the score to someone who hasn't given us an
   // email this session. Initialised synchronously (so no gate-flash on a
   // returning user — the email was already stored by the quiz / a prior gate).
-  const [isCaptured, setIsCaptured] = useState<boolean>(() => emailInSession() !== null);
+  const [isCaptured, setIsCaptured] = useState<boolean>(() => getEmail() !== null);
   const [email, setEmail] = useState("");
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -223,7 +258,7 @@ function ResultPage() {
   // When a known user sees the reveal, record the funnel step (fire-and-forget).
   useEffect(() => {
     if (isCaptured && hasResult) {
-      const uid = userIdInSession();
+      const uid = getUserId();
       if (uid) markRevealed({ data: uid }).catch(() => {});
     }
   }, [isCaptured, hasResult]);
@@ -247,12 +282,8 @@ function ResultPage() {
     setCapturing(true);
     try {
       const res = await captureEmail({ data: { email: value } });
-      try {
-        sessionStorage.setItem(EMAIL_KEY, res.email);
-        sessionStorage.setItem(USER_ID_KEY, String(res.userId));
-      } catch {
-        /* ignore storage failures */
-      }
+      setSessionEmail(res.email);
+      setUserId(res.userId);
       setIsCaptured(true);
       markRevealed({ data: res.userId }).catch(() => {});
     } catch (e) {
@@ -287,7 +318,15 @@ function ResultPage() {
           <span className="text-sm text-ink-soft">~2 minutes · no stats</span>
         </nav>
 
-        {!hasResult ? (
+        {resuming ? (
+          <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+            <p className="text-sm uppercase tracking-[0.2em] text-muted">Fetching your FED plan</p>
+            <h1 className="mt-3 font-display text-2xl font-extrabold text-warm">
+              Just a moment…
+            </h1>
+            <p className="mt-2 text-ink-soft">We're pulling up your result so you don't have to re-take the quiz.</p>
+          </div>
+        ) : !hasResult ? (
           <NoResult />
         ) : !isCaptured ? (
           <EmailGate
@@ -407,7 +446,7 @@ function ResultPage() {
                 onClick={(e) => {
                   if (!paywallUrl) e.preventDefault();
                   // Checkout-click analytics (fire-and-forget, never blocks).
-                  fireFunnelEvent("checkout_clicked", userIdInSession() ?? undefined, "result");
+                  fireFunnelEvent("checkout_clicked", getUserId() ?? undefined, "result");
                 }}
                 className="btn-primary mt-6 w-full"
               >

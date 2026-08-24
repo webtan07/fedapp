@@ -55,6 +55,12 @@ export interface FEDResultEmailData {
   profileName: string;
   /** Intensity tier label, e.g. "High". */
   intensityLabel: string;
+  /**
+   * The unguessable per-attempt resume token. The email's "See your FED plan"
+   * button links to `/result?t=<token>` so a returning user resumes straight to
+   * their result/plan (no re-quiz) — verified server-side by resolveResume.
+   */
+  resumeToken: string;
   /** Per-pillar breakdown. */
   pillars: {
     fasting: number;
@@ -83,7 +89,10 @@ export async function sendQuizResultEmail(
   data: FEDResultEmailData,
 ): Promise<unknown> {
   const from = `"FED" <${senderEmail()}>`;
-  const resultLink = config.appBaseUrl;
+  // Resume link: carries the per-attempt token so the returned user is
+  // recognised (server-verified) and taken straight to their result/plan
+  // without a re-quiz — works across tabs on iOS Safari.
+  const resumeLink = `${config.appBaseUrl}/result?t=${encodeURIComponent(data.resumeToken)}`;
 
   const subject = `Your FED score: ${data.score}/24 — you're not broken`;
 
@@ -127,7 +136,7 @@ export async function sendQuizResultEmail(
         Take a look at what we put together for you:
       </p>
       <p style="margin:20px 0;">
-        <a href="${resultLink}" style="display:inline-block;background:linear-gradient(90deg,#C1673C,#C98F45);color:#fff;text-decoration:none;padding:14px 28px;border-radius:12px;font-family:Arial,Helvetica,sans-serif;font-weight:bold;">See your FED plan</a>
+        <a href="${resumeLink}" style="display:inline-block;background:linear-gradient(90deg,#C1673C,#C98F45);color:#fff;text-decoration:none;padding:14px 28px;border-radius:12px;font-family:Arial,Helvetica,sans-serif;font-weight:bold;">See your FED plan</a>
       </p>
 
       <p style="font-size:12px;line-height:1.6;color:#8a7a6d;border-top:1px solid #F0E0CC;padding-top:14px;margin-top:24px;">
@@ -150,7 +159,7 @@ Breakdown:
 
 Your personalized plan — a fasting window, a daily move, and a plate idea tuned
 to your profile — is waiting for you here:
-${resultLink}
+${resumeLink}
 
 FED is a general wellness product, not medical advice. Please consult your
 doctor before making changes to your diet, fasting, or exercise routine.
