@@ -38,14 +38,34 @@ export const sql = () => {
  */
 export async function ensureSchema(): Promise<void> {
   const db = sql();
-  for (const statement of CREATE_TABLES) {
-    await db`${db.unsafe(statement)}`;
-  }
+  // Run every CREATE_TABLES and MIGRATIONS statement in isolation so a single
+  // failing statement can never abort the loop and skip the remaining
+  // statements. This is exactly the failure mode that previously blocked the
+  // resume-token migration in production: a misplaced unique index in
+  // CREATE_TABLES that referenced a column only MIGRATIONS adds threw out of
+  // the CREATE_TABLES loop, so MIGRATIONS never ran and the column was never
+  // created. Failures are logged and collected but don't stop the rest.
+  const errors: string[] = [];
+  const runEach = async (statements: string[], phase: string) => {
+    for (const statement of statements) {
+      try {
+        await db`${db.unsafe(statement)}`;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`[schema:${phase}] statement failed: ${msg}`);
+        errors.push(`${phase}: ${statement.split("\n")[0]} -> ${msg}`);
+      }
+    }
+  };
+  await runEach(CREATE_TABLES, "create");
   // Idempotent migrations for schemas created by an older version of the DDL.
-  for (const statement of MIGRATIONS) {
-    await db`${db.unsafe(statement)}`;
-  }
+  await runEach(MIGRATIONS, "migrate");
   await seedStaticContent();
+  if (errors.length > 0) {
+    // Surface the collected failures once, after the full pass, so callers can
+    // see the diagnosis even though schema application continued.
+    console.error(`[schema] ${errors.length} statement(s) failed:`, errors);
+  }
 }
 
 /** Insert seed profiles / moves / plates, updating any row that already exists. */

@@ -168,10 +168,14 @@ export const CREATE_TABLES: string[] = [
     resume_token     text,
     created_at       timestamptz NOT NULL DEFAULT now()
   )`,
-
-  `CREATE UNIQUE INDEX IF NOT EXISTS quiz_attempts_resume_token_key
-    ON ${SCHEMA}.quiz_attempts (resume_token) WHERE resume_token IS NOT NULL`,
-
+  // NOTE: the resume_token unique index is intentionally NOT defined here.
+  // This CREATE_TABLES batch runs in full before MIGRATIONS on every call,
+  // and this index references resume_token, which is only guaranteed to exist
+  // once the MIGRATIONS loop runs its ALTER on pre-existing databases.
+  // Defining it here caused CREATE_TABLES to throw "column resume_token does
+  // not exist" on upgraded DBs (the table already exists, so CREATE TABLE IF
+  // NOT EXISTS no-ops), which aborted ensureSchema() before MIGRATIONS could
+  // add the column. The index is created idempotently in MIGRATIONS instead.
   `CREATE TABLE IF NOT EXISTS ${SCHEMA}.quiz_answers (
     id             serial PRIMARY KEY,
     attempt_id     int NOT NULL REFERENCES ${SCHEMA}.quiz_attempts(id) ON DELETE CASCADE,
