@@ -7,6 +7,7 @@ import {
   markRevealed,
 } from "~/routes/api/result";
 import { unlockWithTesterCode } from "~/routes/api/app";
+import { fireFunnelEvent } from "~/lib/funnel";
 import { DynamicShareCard } from "~/components/share-card";
 import { toPng } from "html-to-image";
 import { FEDWordmark } from "~/components/brand";
@@ -405,6 +406,8 @@ function ResultPage() {
                 href={paywallUrl || "#"}
                 onClick={(e) => {
                   if (!paywallUrl) e.preventDefault();
+                  // Checkout-click analytics (fire-and-forget, never blocks).
+                  fireFunnelEvent("checkout_clicked", userIdInSession() ?? undefined, "result");
                 }}
                 className="btn-primary mt-6 w-full"
               >

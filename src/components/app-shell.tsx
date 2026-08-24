@@ -5,6 +5,7 @@ import { SunBadge } from "./brand";
 import { DisclaimerNote, LegalFooter } from "./footer";
 import { STRIPE_PAYWALL_URL } from "~/site";
 import { getTesterStatus, unlockWithEmail } from "~/routes/api/app";
+import { fireFunnelEvent } from "~/lib/funnel";
 
 const PAGES = [
   { href: "/app", label: "My Plan" },
@@ -154,6 +155,17 @@ export function Locked({ title, blurb }: { title: string; blurb?: string }) {
           href={STRIPE_PAYWALL_URL}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => {
+            // Checkout-click analytics (fire-and-forget, never blocks).
+            let uid: number | undefined;
+            try {
+              const v = sessionStorage.getItem("fed_userId");
+              if (v) uid = Number(v);
+            } catch {
+              /* storage unavailable — ignore */
+            }
+            fireFunnelEvent("checkout_clicked", uid, "app-lock");
+          }}
           className="btn-primary w-full"
         >
           Get FED — $19 founding · one-time

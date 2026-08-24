@@ -247,6 +247,24 @@ export const CREATE_TABLES: string[] = [
     intensity     text CHECK (intensity IN ('low', 'mid', 'high')),
     created_at    timestamptz NOT NULL DEFAULT now()
   )`,
+  // Funnel analytics — one append-only row per observed funnel event (quiz
+  // started / completed, email captured, score revealed, checkout clicked,
+  // tester unlocked). Minimal, no third-party SDK. `email` is only ever written
+  // at steps where the user has explicitly entered it (email_captured /
+  // tester_unlocked); `profile` is the FED profile slug when known. New table
+  // (not a migration) so a first-run DB self-heals into it and older DBs pick
+  // it up on the next ensureSchema() (CREATE TABLE IF NOT EXISTS runs every time).
+  `CREATE TABLE IF NOT EXISTS ${SCHEMA}.funnel_events (
+    id          serial PRIMARY KEY,
+    event_name  text NOT NULL,
+    user_id     int REFERENCES ${SCHEMA}.users(id) ON DELETE CASCADE,
+    email       text,
+    profile     text,
+    source      text,
+    created_at  timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE INDEX IF NOT EXISTS funnel_events_event_created_idx
+   ON ${SCHEMA}.funnel_events (event_name, created_at)`,
 ];
 
 /**

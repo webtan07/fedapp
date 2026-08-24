@@ -19,6 +19,7 @@ import {
   listPlates,
   saveCheckin,
   startFast,
+  trackFunnelEvent,
   type CheckinRow,
   type FastingRow,
 } from "~/db/db";
@@ -137,6 +138,12 @@ export const unlockWithTesterCode = createServerFn()
     await ensureSchema();
     const user = await getOrCreateUser(data.email);
     await grantTesterAccess(user.id);
+    // Analytics event (best-effort — must never break the unlock).
+    try {
+      await trackFunnelEvent({ event: "tester_unlocked", userId: user.id, email: user.email });
+    } catch (e) {
+      console.error("[funnel] tester_unlocked tracking failed:", e);
+    }
     return { success: true, userId: user.id, email: user.email, hasPlan: true };
   });
 

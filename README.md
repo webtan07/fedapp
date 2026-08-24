@@ -38,7 +38,8 @@ DDL + seed rows). Verified via the healthcheck:
 
 Tables created in `fed`:
 `users`, `quiz_attempts`, `quiz_answers`, `profiles`, `checkins`,
-`fasting_sessions`, `moves`, `plates`, `plan_access`.
+`fasting_sessions`, `moves`, `plates`, `plan_access`, `feedback_submissions`,
+`funnel_events`.
 
 ## Routes
 | Path | Purpose |
@@ -46,6 +47,7 @@ Tables created in `fed`:
 | `/` | Landing / quiz-landing |
 | `/result` | Result + sales page (email gate → score/profile reveal → 3 teaser moves → Get FED paywall CTA) |
 | `/health` | Healthcheck page (DB connectivity) |
+| `/admin/funnel` | Internal funnel-analytics read view (aggregated per-event counts) |
 | `/app` | Paywalled app home (plan) |
 | `/app/fasting` | Fasting Timer screen |
 | `/app/move` | Today's Move screen |
