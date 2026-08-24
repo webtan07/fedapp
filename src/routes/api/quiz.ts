@@ -89,31 +89,48 @@ export const submitQuiz = createServerFn()
       console.error("[funnel] email_captured tracking failed:", e);
     }
 
-    // Fire the "here's your result" email AFTER the attempt is persisted. It is
-    // intentionally non-blocking (not awaited) so a slow/failing SMTP never
-    // delays or breaks quiz submission or the UI — failures are caught+logged.
-    // We only ever send to the email the user just explicitly submitted.
-    void (async () => {
+    // Send the "here's your result" email AFTER the attempt is persisted.
+    //
+    // This is AWAITED (not fire-and-forgotten) on purpose: in a serverless
+    // lambda the only thing that keeps the runtime alive is the in-flight
+    // request, so a non-awaited `void (async () => {})()` can be reaped the
+    // moment the response returns — the email silently never sends and no log
+    // line ever fires (root cause of the missing-emails bug this fixes). The
+    // send is bounded by a hard 15s timeout (every SMTP step capped at 10s) so
+    // the worst case adds ~15s of latency; a failure is caught below and can
+    // NEVER break or delay quiz submission — the quiz result is always
+    // returned. We only ever send to the email the user just explicitly submitted.
+    try {
+      const profile = (await getProfileBySlug(result.profileSlug)) ?? null;
+      await sendQuizResultEmail({
+        to: user.email,
+        score: result.total,
+        profileName: profile?.name ?? result.profileSlug,
+        intensityLabel: intensityLabel(result.intensity),
+        resumeToken,
+        pillars: {
+          fasting: result.fp,
+          exercise: result.ep,
+          diet: result.dp,
+        },
+      });
+      console.log(`[email] FED result sent to ${user.email} (attempt ${attemptId})`);
+      // Best-effort funnel visibility — a send success/failure must never
+      // break quiz submission.
       try {
-        const profile =
-          (await getProfileBySlug(result.profileSlug)) ?? null;
-        await sendQuizResultEmail({
-          to: user.email,
-          score: result.total,
-          profileName: profile?.name ?? result.profileSlug,
-          intensityLabel: intensityLabel(result.intensity),
-          resumeToken,
-          pillars: {
-            fasting: result.fp,
-            exercise: result.ep,
-            diet: result.dp,
-          },
-        });
-        console.log(`[email] FED result sent to ${user.email} (attempt ${attemptId})`);
+        await trackFunnelEvent({ event: "email_sent", userId: user.id });
       } catch (e) {
-        console.error(`[email] FED result email FAILED for ${user.email}:`, e);
+        console.error("[funnel] email_sent tracking failed:", e);
       }
-    })();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[email] FED result email FAILED for ${user.email} (attempt ${attemptId}): ${msg}`);
+      try {
+        await trackFunnelEvent({ event: "email_failed", userId: user.id });
+      } catch (e2) {
+        console.error("[funnel] email_failed tracking failed:", e2);
+      }
+    }
 
     return { success: true, attemptId, userId: user.id, result };
   });

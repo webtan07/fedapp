@@ -33,12 +33,40 @@ function senderEmail(): string {
   return config.emailUser ?? "admin@webdigitalassistants.com";
 }
 
+/**
+ * Hard bound on how long a single send may take. Keeps a hostile/slow SMTP
+ * from ever holding the request open past a bounded window (important in
+ * serverless where the request lifecycle is the only thing keeping the
+ * function alive). Gmail normally completes in ~1s.
+ */
+const SEND_TIMEOUT_MS = 15_000;
+const SMTP_TIMEOUT_MS = 10_000;
+
+/** Reject `p` if it doesn't settle within `ms`. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`SMTP send timed out after ${ms}ms`)),
+      ms,
+    );
+  });
+  return Promise.race([p, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 /** Build the nodemailer transporter (lazy, per send). */
 function createTransporter() {
   return nodemailer.createTransport({
     host: smtpConfig().host,
     port: smtpConfig().port,
     secure: smtpConfig().secure,
+    // Bound every SMTP round-trip step so a stuck connection resolves (with an
+    // error) instead of hanging the request until the platform kills it.
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
     auth: {
       user: senderEmail(),
       pass: config.emailAppPassword,
@@ -166,11 +194,16 @@ doctor before making changes to your diet, fasting, or exercise routine.
   `.trim();
 
   const transporter = createTransporter();
-  return await transporter.sendMail({
-    from,
-    to: data.to,
-    subject,
-    html,
-    text,
-  });
+  // Race the send against a hard timeout so a stalled SMTP resolves-with-error
+  // rather than leaving the caller hanging (see sendQuizResultEmail callers).
+  return await withTimeout(
+    transporter.sendMail({
+      from,
+      to: data.to,
+      subject,
+      html,
+      text,
+    }),
+    SEND_TIMEOUT_MS,
+  );
 }
