@@ -187,6 +187,8 @@ export type FunnelEventName =
   | "score_revealed"
   | "checkout_clicked"
   | "tester_unlocked"
+  | "email_sent" // result email delivered to SMTP (accepted)
+  | "email_failed" // result email send threw/timed-out (visibility for outages)
   | "paid_checkout_completed"; // RESERVED — not emitted (no Stripe webhook yet)
 
 export interface TrackFunnelEventInput {
