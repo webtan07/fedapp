@@ -5,6 +5,7 @@ import {
   getOrCreateUser,
   getProfileBySlug,
   markFunnelStep,
+  trackFunnelEvent,
 } from "~/db/db";
 import type { Profile } from "~/db/schema";
 
@@ -42,6 +43,12 @@ export const captureEmail = createServerFn()
     await ensureSchema();
     const user = await getOrCreateUser(data.email);
     await markFunnelStep(user.id, "email_captured");
+    // Analytics event (best-effort — must never break the capture).
+    try {
+      await trackFunnelEvent({ event: "email_captured", userId: user.id, email: user.email });
+    } catch (e) {
+      console.error("[funnel] email_captured tracking failed:", e);
+    }
     return { success: true, userId: user.id, email: user.email };
   });
 
@@ -84,6 +91,12 @@ export const markRevealed = createServerFn()
     if (data) {
       requireEnv("databaseUrl");
       await markFunnelStep(data, "score_revealed");
+      // Analytics event (best-effort — must never break the reveal).
+      try {
+        await trackFunnelEvent({ event: "score_revealed", userId: data });
+      } catch (e) {
+        console.error("[funnel] score_revealed tracking failed:", e);
+      }
     }
     return { success: true };
   });

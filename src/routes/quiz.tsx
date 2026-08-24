@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FEDWordmark } from "~/components/brand";
 import { LegalFooter } from "~/components/footer";
+import { fireFunnelEvent } from "~/lib/funnel";
 import { ANSWER_OPTIONS, QUESTIONS, QUESTION_COUNT } from "~/quiz/questions";
 import type { QuizAnswers } from "~/quiz/scoring";
 import { submitQuiz } from "~/routes/api/quiz";
@@ -32,6 +33,19 @@ function QuizPage() {
   const isEmailStep = step === STEP_EMAIL;
   const question = QUESTIONS[step];
   const answered = (q: string) => answers[q] !== undefined;
+  // Funnel analytics: fire `quiz_started` once on page mount, and
+  // `quiz_completed` once the user has answered every question and reached the
+  // email gate (before they submit). Both are fire-and-forget and never block.
+  useEffect(() => {
+    fireFunnelEvent("quiz_started");
+  }, []);
+  const quizCompletedFired = useRef(false);
+  useEffect(() => {
+    if (isEmailStep && !quizCompletedFired.current) {
+      quizCompletedFired.current = true;
+      fireFunnelEvent("quiz_completed");
+    }
+  }, [isEmailStep]);
 
   const choose = (q: string, value: number) => {
     const next = { ...answers, [q]: value };

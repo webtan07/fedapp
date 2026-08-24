@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { ensureSchema, getOrCreateUser, getProfileBySlug, sql } from "~/db/db";
+import { ensureSchema, getOrCreateUser, getProfileBySlug, sql, trackFunnelEvent } from "~/db/db";
 import { requireEnv } from "~/config";
 import { QUESTIONS } from "~/quiz/questions";
 import { scoreQuiz, type QuizAnswers, type QuizResult } from "~/quiz/scoring";
@@ -66,6 +66,20 @@ export const submitQuiz = createServerFn()
         INSERT INTO fed.quiz_answers (attempt_id, question_key, answer)
         VALUES (${attemptId}, ${q.key}, ${data.answers[q.key] ?? 0})
       `;
+    }
+    // Funnel analytics: the quiz is now complete server-side and, because the
+    // final quiz step IS the email gate, the user's email has been captured in
+    // the same submission. Record email_captured (with email + profile) —
+    // best-effort; a failure must never break quiz submission.
+    try {
+      await trackFunnelEvent({
+        event: "email_captured",
+        userId: user.id,
+        email: user.email,
+        profile: result.profileSlug,
+      });
+    } catch (e) {
+      console.error("[funnel] email_captured tracking failed:", e);
     }
 
     // Fire the "here's your result" email AFTER the attempt is persisted. It is

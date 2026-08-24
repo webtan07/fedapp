@@ -147,6 +147,55 @@ export async function markFunnelStep(userId: number, step: FunnelStep): Promise<
     WHERE id = ${userId}
   `;
 }
+/**
+ * Analytics: append-only funnel event log (fed.funnel_events). Prefer this over
+ * `users.funnel_step` for measuring conversion — the step column only ever
+ * holds a user's LATEST step, whereas these rows capture every observed event
+ * over time so we can bucket counts per event / day.
+ *
+ * `email` is deliberately kept to steps where the user has explicitly entered
+ * it (email_captured / tester_unlocked) — we never write PII on anonymous
+ * events. `paid_checkout_completed` is RESERVED but NOT currently emitted: the
+ * managed one-time Stripe link provides no webhook/secret, so a purchase can't
+ * be verified server-side (see README "Unlock handoff"). Wire it when that
+ * lands (Stripe webhook or a verified checkout source), never fake it.
+ */
+export type FunnelEventName =
+  | "quiz_started"
+  | "quiz_completed"
+  | "email_captured"
+  | "score_revealed"
+  | "checkout_clicked"
+  | "tester_unlocked"
+  | "paid_checkout_completed"; // RESERVED — not emitted (no Stripe webhook yet)
+
+export interface TrackFunnelEventInput {
+  event: FunnelEventName;
+  userId?: number;
+  email?: string;
+  profile?: string;
+  source?: string;
+}
+/** Append one row to the funnel analytics log. Fire-and-forget friendly. */
+export async function trackFunnelEvent(input: TrackFunnelEventInput): Promise<void> {
+  await sql()`
+    INSERT INTO fed.funnel_events (event_name, user_id, email, profile, source)
+    VALUES (${input.event}, ${input.userId ?? null}, ${input.email ?? null},
+            ${input.profile ?? null}, ${input.source ?? null})
+  `;
+}
+/** Per-event funnel counts (no PII rows) for the tiny /admin/funnel read view. */
+export async function getFunnelEventCounts(): Promise<
+  { event: string; count: number; lastAt: Date | string }[]
+> {
+  const rows = await sql()`
+    SELECT event_name AS "event", COUNT(*)::int AS "count", MAX(created_at) AS "lastAt"
+    FROM fed.funnel_events
+    GROUP BY event_name
+    ORDER BY "count" DESC
+  `;
+  return rows as unknown as { event: string; count: number; lastAt: Date | string }[];
+}
 
 /** List the FED tables present in the `fed` schema (for the healthcheck). */
 export async function listFedTables(): Promise<string[]> {
