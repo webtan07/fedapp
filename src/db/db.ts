@@ -313,6 +313,46 @@ export async function getLatestQuizAttempt(
   return rows.length ? (rows[0] as QuizAttemptSummary) : null;
 }
 
+/** Per-pillar scores are stored as a jsonb object {fasting, exercise, diet}. */
+export interface ResumeAttempt {
+  userId: number;
+  email: string;
+  profileSlug: string;
+  total: number;
+  intensity: string;
+  fp: number;
+  ep: number;
+  dp: number;
+}
+/**
+ * Resolve an email-link resume token back to its quiz attempt and owner's
+ * account (server-verified). Returns null when the token is unknown / stale.
+ * Each token is a unique, unguessable 256-bit value minted at quiz-submit time
+ * and maps to exactly ONE attempt, so resolving it can only ever return that
+ * attempt's own user — it never exposes another user's data.
+ */
+export async function getResumeAttempt(
+  token: string,
+): Promise<ResumeAttempt | null> {
+  const rows = await sql()`
+    SELECT
+      a.user_id AS "userId",
+      u.email AS "email",
+      a.profile AS "profileSlug",
+      a.fed_score AS "total",
+      a.intensity AS "intensity",
+      (a.scores->>'fasting')::int AS "fp",
+      (a.scores->>'exercise')::int AS "ep",
+      (a.scores->>'diet')::int AS "dp"
+    FROM fed.quiz_attempts a
+    JOIN fed.users u ON u.id = a.user_id
+    WHERE a.resume_token = ${token}
+    ORDER BY a.id DESC
+    LIMIT 1
+  `;
+  return rows.length ? (rows[0] as unknown as ResumeAttempt) : null;
+}
+
 /** Insert one tester feedback submission, auto-tagged with profile context. */
 export interface FeedbackInsert {
   userId: number;

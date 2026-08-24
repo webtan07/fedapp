@@ -1,3 +1,4 @@
+import { getUserId } from "~/lib/session";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "~/components/app-shell";
@@ -10,9 +11,7 @@ export const Route = createFileRoute("/app/feedback")({
 });
 
 function userId(): number | null {
-  if (typeof window === "undefined") return null;
-  const v = sessionStorage.getItem("fed_userId");
-  return v ? Number(v) : null;
+  return getUserId();
 }
 
 function FeedbackScreen() {

@@ -165,8 +165,12 @@ export const CREATE_TABLES: string[] = [
     dominant_pillar  text NOT NULL CHECK (dominant_pillar IN ('fasting', 'exercise', 'diet')),
     profile          text NOT NULL DEFAULT '',
     intensity        text NOT NULL CHECK (intensity IN ('low', 'mid', 'high')),
+    resume_token     text,
     created_at       timestamptz NOT NULL DEFAULT now()
   )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS quiz_attempts_resume_token_key
+    ON ${SCHEMA}.quiz_attempts (resume_token) WHERE resume_token IS NOT NULL`,
 
   `CREATE TABLE IF NOT EXISTS ${SCHEMA}.quiz_answers (
     id             serial PRIMARY KEY,
@@ -404,6 +408,12 @@ export const MIGRATIONS: string[] = [
   // from 'free'). Rebuild the CHECK so existing databases accept it.
   `ALTER TABLE ${SCHEMA}.plan_access DROP CONSTRAINT IF EXISTS plan_access_plan_check`,
   `ALTER TABLE ${SCHEMA}.plan_access ADD CONSTRAINT plan_access_plan_check CHECK (plan IN ('free', 'paid', 'tester'))`,
+  // Email-link resume: each quiz attempt gets an unguessable token so the
+  // "See your FED plan" email can send the user straight back to their result /
+  // plan without a re-quiz. Added as a migration so existing DBs pick it up.
+  `ALTER TABLE ${SCHEMA}.quiz_attempts ADD COLUMN IF NOT EXISTS resume_token text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS quiz_attempts_resume_token_key
+    ON ${SCHEMA}.quiz_attempts (resume_token) WHERE resume_token IS NOT NULL`,
 ];
 
 /**

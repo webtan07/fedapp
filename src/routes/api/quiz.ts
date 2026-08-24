@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { randomBytes } from "node:crypto";
 import { ensureSchema, getOrCreateUser, getProfileBySlug, sql, trackFunnelEvent } from "~/db/db";
 import { requireEnv } from "~/config";
 import { QUESTIONS } from "~/quiz/questions";
@@ -51,12 +52,18 @@ export const submitQuiz = createServerFn()
       diet: result.dp,
     });
 
+    // Unguessable per-attempt token (256-bit) so the "See your FED plan" email can
+    // send the user straight back to their result/plan without a re-quiz, verified
+    // server-side on click (see resolveResume). Maps to exactly one attempt.
+    const resumeToken = randomBytes(32).toString("hex");
+
     const attempt = await db`
       INSERT INTO fed.quiz_attempts
-        (user_id, answers, fed_score, scores, dominant_pillar, profile, intensity)
+        (user_id, answers, fed_score, scores, dominant_pillar, profile, intensity, resume_token)
       VALUES
         (${user.id}, ${JSON.stringify(data.answers)}::jsonb, ${result.total},
-         ${scores}::jsonb, ${result.dominantPillar}, ${result.profileSlug}, ${result.intensity})
+         ${scores}::jsonb, ${result.dominantPillar}, ${result.profileSlug}, ${result.intensity},
+         ${resumeToken})
       RETURNING id
     `;
     const attemptId = attempt[0].id as number;
@@ -95,6 +102,7 @@ export const submitQuiz = createServerFn()
           score: result.total,
           profileName: profile?.name ?? result.profileSlug,
           intensityLabel: intensityLabel(result.intensity),
+          resumeToken,
           pillars: {
             fasting: result.fp,
             exercise: result.ep,

@@ -6,6 +6,7 @@ import { fireFunnelEvent } from "~/lib/funnel";
 import { ANSWER_OPTIONS, QUESTIONS, QUESTION_COUNT } from "~/quiz/questions";
 import type { QuizAnswers } from "~/quiz/scoring";
 import { submitQuiz } from "~/routes/api/quiz";
+import { setEmail as setSessionEmail, setUserId } from "~/lib/session";
 
 export const Route = createFileRoute("/quiz")({
   component: QuizPage,
@@ -72,12 +73,8 @@ function QuizPage() {
       // Remember that this session already gave us their email (and that the
       // submitQuiz server fn already created their user row), so /result
       // reveals the score immediately instead of asking again.
-      try {
-        sessionStorage.setItem("fed_email", email.trim().toLowerCase());
-        sessionStorage.setItem("fed_userId", String(res.userId));
-      } catch {
-        /* storage may be unavailable — /result will just show the gate */
-      }
+      setSessionEmail(email.trim().toLowerCase());
+      setUserId(res.userId);
       await navigate({
         to: "/result",
         search: {
@@ -87,6 +84,7 @@ function QuizPage() {
           fp: r.fp,
           ep: r.ep,
           dp: r.dp,
+          t: undefined,
         },
       });
     } catch (e) {
